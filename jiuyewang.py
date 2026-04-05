@@ -146,6 +146,7 @@ class JobOnlineSpider:
     def _init_browser(self) -> None:
         """初始化浏览器"""
         options = Options()
+        options.add_argument("--headless=new")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option("useAutomationExtension", False)
