@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - 岗位推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>岗位推荐系统</h2>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128269;</span>
+                        <span class="nav-text">岗位查找</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showPlaceholder('简历录入功能开发中...'); return false;">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">简历录入</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showPlaceholder('岗位匹配功能开发中...'); return false;">
+                        <span class="nav-icon">&#128279;</span>
+                        <span class="nav-text">岗位匹配</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">退出登录</a>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+        <header class="main-header">
+            <h1>岗位查找</h1>
+        </header>
+        
+        <div class="content-wrapper">
+            <div class="search-panel">
+                <div class="search-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="keyword">关键词</label>
+                            <input type="text" id="keyword" placeholder="职位名称或公司名称">
+                        </div>
+                        <div class="form-group">
+                            <label for="location">工作地点</label>
+                            <input type="text" id="location" placeholder="如：北京、上海">
+                        </div>
+                        <div class="form-group">
+                            <label for="experience">工作经验</label>
+                            <input type="text" id="experience" placeholder="如：3-5年">
+                        </div>
+                        <div class="form-group">
+                            <label for="education">学历要求</label>
+                            <input type="text" id="education" placeholder="如：本科">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" id="searchBtn">搜索岗位</button>
+                        <button type="button" class="btn btn-secondary" id="resetBtn">重置</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="crawler-panel">
+                <div class="crawler-header">
+                    <h3>爬虫控制</h3>
+                </div>
+                <div class="crawler-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="crawler-keyword">搜索关键词</label>
+                            <input type="text" id="crawler-keyword" placeholder="请输入岗位关键词">
+                        </div>
+                        <div class="form-group">
+                            <label for="crawler-count">爬取数量</label>
+                            <select id="crawler-count">
+                                <option value="20">20条</option>
+                                <option value="40">40条</option>
+                                <option value="60">60条</option>
+                                <option value="80">80条</option>
+                                <option value="100">100条</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn btn-success" id="startCrawlerBtn">启动爬虫</button>
+                            <button type="button" class="btn btn-danger" id="stopCrawlerBtn" disabled>停止爬虫</button>
+                        </div>
+                    </div>
+                    <div class="crawler-status" id="crawlerStatus" style="display: none;">
+                        <div class="status-bar">
+                            <div class="progress-bar">
+                                <div class="progress" id="crawlerProgress" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-text" id="progressText">0%</span>
+                        </div>
+                        <p class="status-message" id="statusMessage"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="job-list-panel">
+                <div class="panel-header">
+                    <h3>岗位列表</h3>
+                    <span class="job-count" id="jobCount">共 0 条记录</span>
+                </div>
+                
+                <div class="job-list" id="jobList">
+                    <div class="empty-state">
+                        <p>暂无岗位数据，请先启动爬虫获取数据</p>
+                    </div>
+                </div>
+                
+                <div class="pagination" id="pagination">
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="jobDetailModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">岗位详情</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/crawler.js') }}"></script>
+{% endblock %}

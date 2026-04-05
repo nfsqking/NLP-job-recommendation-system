@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 岗位推荐系统{% endblock %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-box">
+        <div class="login-header">
+            <h1>岗位推荐系统</h1>
+            <p>Job Recommendation System</p>
+        </div>
+        
+        <div class="login-tabs">
+            <button class="tab-btn active" data-tab="login">登录</button>
+            <button class="tab-btn" data-tab="register">注册</button>
+        </div>
+        
+        <form id="loginForm" class="auth-form active" action="{{ url_for('auth.login') }}" method="POST">
+            <div class="form-group">
+                <label for="login-username">用户名</label>
+                <input type="text" id="login-username" name="username" placeholder="请输入用户名" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="login-password">密码</label>
+                <input type="password" id="login-password" name="password" placeholder="请输入密码" required>
+            </div>
+            
+            <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="remember" value="true">
+                    <span>记住我</span>
+                </label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">登录</button>
+        </form>
+        
+        <form id="registerForm" class="auth-form" action="{{ url_for('auth.register') }}" method="POST">
+            <div class="form-group">
+                <label for="register-username">用户名</label>
+                <input type="text" id="register-username" name="username" placeholder="请输入用户名" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="register-email">邮箱</label>
+                <input type="email" id="register-email" name="email" placeholder="请输入邮箱" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="register-nickname">昵称（选填）</label>
+                <input type="text" id="register-nickname" name="nickname" placeholder="请输入昵称">
+            </div>
+            
+            <div class="form-group">
+                <label for="register-password">密码</label>
+                <input type="password" id="register-password" name="password" placeholder="请输入密码" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="register-password-confirm">确认密码</label>
+                <input type="password" id="register-password-confirm" name="password_confirm" placeholder="请再次输入密码" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">注册</button>
+        </form>
+        
+        <div class="login-footer">
+            <p>&copy; 2024 岗位推荐系统 All Rights Reserved</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+{% endblock %}

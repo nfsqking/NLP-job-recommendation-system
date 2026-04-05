@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """就业在线岗位爬虫模块
 
-该模块用于从 jobonline.cn 网站爬取岗位信息并存储到 SQLite 数据库。
+该模块用于从 jobonline.cn 网站爬取岗位信息。
+支持独立运行和被 Flask 应用调用。
 """
 
 import logging
 import os
 import re
-import sqlite3
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 import parsel
 import requests
@@ -22,7 +22,6 @@ from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from urllib3.util.ssl_ import create_urllib3_context
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -48,6 +47,7 @@ CONFIG = {
 
 @dataclass
 class JobInfo:
+    """岗位信息数据类"""
     job_id: str
     job_name: str
     job_salary: str
@@ -60,19 +60,24 @@ class JobInfo:
     company_type: str
     company_size: str
 
+
 class DatabaseManager:
     """数据库管理类，负责岗位数据的存储。"""
 
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self.conn: Optional[sqlite3.Connection] = None
+        self.conn: Optional[object] = None
 
     def connect(self) -> None:
+        """连接数据库"""
+        import sqlite3
         self.conn = sqlite3.connect(self.db_path)
         self._create_table()
         logger.info(f"数据库连接成功: {self.db_path}")
 
     def _create_table(self) -> None:
+        """创建数据表"""
+        import sqlite3
         cursor = self.conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS jobs (
@@ -94,6 +99,7 @@ class DatabaseManager:
         self.conn.commit()
 
     def save_job(self, job: JobInfo) -> None:
+        """保存岗位信息"""
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT OR REPLACE INTO jobs 
@@ -108,6 +114,7 @@ class DatabaseManager:
         self.conn.commit()
 
     def close(self) -> None:
+        """关闭数据库连接"""
         if self.conn:
             self.conn.close()
             logger.info("数据库连接已关闭")
@@ -116,6 +123,7 @@ class DatabaseManager:
 class JobOnlineSpider:
     """就业在线岗位爬虫类。"""
 
+    CONFIG = CONFIG
     SELECTORS = {
         'job_name': 'span.el-tooltip.name.item::text',
         'job_salary': 'span.theme-color::text',
@@ -136,9 +144,9 @@ class JobOnlineSpider:
         self.db: Optional[DatabaseManager] = None
 
     def _init_browser(self) -> None:
+        """初始化浏览器"""
         options = Options()
         options.add_argument("--disable-blink-features=AutomationControlled")
-        # options.add_argument("--headless=new")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option("useAutomationExtension", False)
 
@@ -151,17 +159,20 @@ class JobOnlineSpider:
         logger.info("浏览器初始化完成")
 
     def _init_database(self) -> None:
+        """初始化数据库"""
         db_path = os.path.join(os.path.dirname(__file__), CONFIG['DB_NAME'])
         self.db = DatabaseManager(db_path)
         self.db.connect()
 
-    def _get_job_ids_from_page(self) -> list[str]:
+    def _get_job_ids_from_page(self) -> List[str]:
+        """从当前页面获取岗位ID列表"""
         html = self.browser.page_source
         matches = re.findall(self.SELECTORS['job_id_pattern'], html)
         job_ids = [match.split('_')[0] for match in matches]
         return job_ids
 
     def _click_next_page(self) -> bool:
+        """点击下一页"""
         try:
             next_btn = self.browser.find_element(By.XPATH, self.SELECTORS['next_page_btn'])
             if next_btn.is_enabled():
@@ -177,7 +188,8 @@ class JobOnlineSpider:
             logger.warning(f"翻页失败: {e}")
             return False
 
-    def _get_all_job_ids(self) -> list[str]:
+    def _get_all_job_ids(self) -> List[str]:
+        """获取所有岗位ID"""
         all_job_ids = []
         pages_needed = self.max_jobs // CONFIG['JOBS_PER_PAGE']
         
@@ -194,6 +206,7 @@ class JobOnlineSpider:
         return all_job_ids[:self.max_jobs]
 
     def _parse_job_detail(self, job_id: str) -> JobInfo:
+        """解析岗位详情"""
         url = CONFIG['DETAIL_URL'].format(job_id=job_id)
         self.browser.get(url)
         time.sleep(CONFIG['PAGE_LOAD_DELAY'])
@@ -227,6 +240,7 @@ class JobOnlineSpider:
         )
 
     def run(self) -> None:
+        """运行爬虫"""
         try:
             self._init_browser()
             self._init_database()
@@ -261,6 +275,7 @@ class JobOnlineSpider:
 
 
 def main():
+    """主函数 - 独立运行爬虫"""
     keyword = input('请输入目标岗位名称: ').strip()
     if not keyword:
         logger.error("岗位名称不能为空")
@@ -285,4 +300,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
