@@ -1,0 +1,307 @@
+/* 简历模块样式 */
+
+.resume-form-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+}
+
+.resume-form .form-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.resume-form .form-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #303133;
+    margin-bottom: 16px;
+    padding-left: 12px;
+    border-left: 3px solid #409eff;
+}
+
+.required-mark {
+    color: #f56c6c;
+    margin-right: 4px;
+}
+
+.section-content {
+    padding-left: 15px;
+}
+
+.resume-form .form-group.full-width {
+    width: 100%;
+}
+
+.resume-form .form-group input,
+.resume-form .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    font-size: 14px;
+}
+
+.resume-form .form-group input:focus,
+.resume-form .form-group textarea:focus {
+    border-color: #409eff;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    outline: none;
+}
+
+.resume-form .form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.error-message {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #f56c6c;
+}
+
+.resume-form .form-actions {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #ebeef5;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-info {
+    background-color: #909399;
+    color: #fff;
+}
+
+.btn-info:hover {
+    background-color: #a6a9ad;
+}
+
+.resume-detail-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+}
+
+.resume-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #409eff;
+}
+
+.resume-header h2 {
+    font-size: 20px;
+    color: #303133;
+}
+
+.resume-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.resume-section {
+    margin-bottom: 20px;
+}
+
+.resume-section .section-title {
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.resume-section .section-content {
+    background: #f5f7fa;
+    padding: 16px;
+    border-radius: 4px;
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    min-width: 100px;
+    color: #909399;
+    font-size: 14px;
+}
+
+.info-value {
+    color: #303133;
+    font-size: 14px;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.skills-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.skill-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #ecf5ff;
+    color: #409eff;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.evaluation-text {
+    color: #303133;
+    font-size: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+}
+
+.resume-meta {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #ebeef5;
+    color: #909399;
+    font-size: 12px;
+}
+
+.resume-meta p {
+    margin-bottom: 4px;
+}
+
+.resume-meta p:last-child {
+    margin-bottom: 0;
+}
+
+.item-row {
+    background: #f9f9f9;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    border: 1px solid #e8e8e8;
+    position: relative;
+}
+
+.item-row .form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.item-row .form-row .form-group {
+    flex: 1;
+}
+
+.item-row .form-group {
+    margin-bottom: 12px;
+}
+
+.item-row .form-group.full-width {
+    width: 100%;
+}
+
+.item-row .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #606266;
+}
+
+.item-row .form-group input,
+.item-row .form-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.item-row .form-group input:focus,
+.item-row .form-group textarea:focus {
+    border-color: #409eff;
+    outline: none;
+}
+
+.btn-add {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #67c23a;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.btn-add:hover {
+    background: #85ce61;
+}
+
+.btn-delete {
+    display: none;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 4px 12px;
+    background: #f56c6c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-delete:hover {
+    background: #f78989;
+}
+
+.experience-item {
+    padding: 12px 0;
+    border-bottom: 1px dashed #e4e7ed;
+}
+
+.experience-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.experience-item:first-child {
+    padding-top: 0;
+}
+
+@media (max-width: 768px) {
+    .resume-form .form-row {
+        flex-direction: column;
+    }
+    
+    .resume-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .info-row {
+        flex-direction: column;
+    }
+    
+    .info-label {
+        margin-bottom: 4px;
+    }
+}

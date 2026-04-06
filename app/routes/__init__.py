@@ -7,5 +7,6 @@
 from app.routes.auth import auth
 from app.routes.dashboard import dashboard
 from app.routes.job_crawler import job_crawler
+from app.routes.resume import resume
 
-__all__ = ['auth', 'dashboard', 'job_crawler']
+__all__ = ['auth', 'dashboard', 'job_crawler', 'resume']

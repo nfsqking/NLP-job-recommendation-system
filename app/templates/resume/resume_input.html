@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}简历录入 - 岗位推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/resume.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>岗位推荐系统</h2>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128269;</span>
+                        <span class="nav-text">岗位查找</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="{{ url_for('resume.input_resume') }}" class="nav-link">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">简历录入</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showPlaceholder('岗位匹配功能开发中...'); return false;">
+                        <span class="nav-icon">&#128279;</span>
+                        <span class="nav-text">岗位匹配</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">退出登录</a>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+        <header class="main-header">
+            <h1>{% if resume %}编辑简历{% else %}简历录入{% endif %}</h1>
+        </header>
+        
+        <div class="content-wrapper">
+            <div class="resume-form-container">
+                <form method="POST" action="{{ url_for('resume.input_resume') }}" class="resume-form" id="resumeForm">
+                    
+                    <div class="form-section" data-section="education">
+                        <h3 class="section-title">
+                            <span class="required-mark">*</span> 教育经历
+                        </h3>
+                        <div class="section-content" id="education-container">
+                        </div>
+                        <button type="button" class="btn btn-add" onclick="addItem('education')">+ 新增教育经历</button>
+                    </div>
+                    
+                    <div class="form-section" data-section="internship">
+                        <h3 class="section-title">实习经历（选填）</h3>
+                        <div class="section-content" id="internship-container">
+                        </div>
+                        <button type="button" class="btn btn-add" onclick="addItem('internship')">+ 新增实习经历</button>
+                    </div>
+                    
+                    <div class="form-section" data-section="work">
+                        <h3 class="section-title">工作经历（选填）</h3>
+                        <div class="section-content" id="work-container">
+                        </div>
+                        <button type="button" class="btn btn-add" onclick="addItem('work')">+ 新增工作经历</button>
+                    </div>
+                    
+                    <div class="form-section" data-section="project">
+                        <h3 class="section-title">项目经历（选填）</h3>
+                        <div class="section-content" id="project-container">
+                        </div>
+                        <button type="button" class="btn btn-add" onclick="addItem('project')">+ 新增项目经历</button>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="required-mark">*</span> 个人技能
+                        </h3>
+                        <div class="section-content">
+                            <div class="form-group full-width">
+                                <label for="skills">个人技能</label>
+                                <textarea name="skills" id="skills" class="form-control" rows="3" maxlength="500" placeholder="请输入个人技能，多项技能可用逗号或顿号分隔">{{ resume.skills if resume else '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="required-mark">*</span> 个人评价
+                        </h3>
+                        <div class="section-content">
+                            <div class="form-group full-width">
+                                <label for="self_evaluation">个人评价</label>
+                                <textarea name="self_evaluation" id="self_evaluation" class="form-control" rows="4" maxlength="500" placeholder="请输入个人评价">{{ resume.self_evaluation if resume else '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">保存简历</button>
+                        <button type="button" class="btn btn-secondary" id="resetBtn">重置</button>
+                        {% if resume %}
+                        <a href="{{ url_for('resume.detail_resume') }}" class="btn btn-info">查看简历</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+var resumeData = {{ resume_data | tojson | safe if resume_data else '{}' }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/resume.js') }}"></script>
+{% endblock %}

@@ -40,10 +40,12 @@ def create_app(config_name='default'):
     from app.routes.auth import auth as auth_bp
     from app.routes.dashboard import dashboard as dashboard_bp
     from app.routes.job_crawler import job_crawler as job_crawler_bp
+    from app.routes.resume import resume as resume_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(job_crawler_bp, url_prefix='/api')
+    app.register_blueprint(resume_bp, url_prefix='/resume')
     
     from flask import redirect, url_for
     
