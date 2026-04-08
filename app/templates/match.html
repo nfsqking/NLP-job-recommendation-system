@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}简历匹配 - 岗位推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/match.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>岗位推荐系统</h2>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128269;</span>
+                        <span class="nav-text">岗位查找</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('resume.input_resume') }}" class="nav-link">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">简历录入</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="{{ url_for('match.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128279;</span>
+                        <span class="nav-text">简历匹配</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">退出登录</a>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+        <header class="main-header">
+            <h1>简历匹配</h1>
+        </header>
+        
+        <div class="content-wrapper">
+            {% if not model_loaded %}
+            <div class="message-panel">
+                <p class="message-text">语义模型未加载，请先下载模型到本地缓存</p>
+            </div>
+            {% elif not has_resume %}
+            <div class="message-panel">
+                <p class="message-text">请先录入简历后再进行匹配</p>
+                <a href="{{ url_for('resume.input_resume') }}" class="btn btn-primary">去录入简历</a>
+            </div>
+            {% else %}
+            
+            <div class="match-tabs">
+                <button class="tab-btn active" data-tab="select">选择岗位</button>
+                <button class="tab-btn" data-tab="result">匹配结果 <span class="badge" id="resultCount">{{ matched_jobs|length }}</span></button>
+            </div>
+            
+            <div class="tab-content active" id="selectTab">
+                <div class="search-panel">
+                    <div class="search-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="searchKeyword">关键词</label>
+                                <input type="text" id="searchKeyword" placeholder="职位名称或公司名称">
+                            </div>
+                            <div class="form-group">
+                                <label for="searchLocation">工作地点</label>
+                                <input type="text" id="searchLocation" placeholder="如：北京、上海">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="searchBtn">搜索岗位</button>
+                                <button type="button" class="btn btn-secondary" id="resetSearchBtn">重置</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="job-select-panel">
+                    <div class="panel-header">
+                        <div class="header-left">
+                            <h3>岗位列表</h3>
+                            <span class="job-count" id="jobCount">共 {{ jobs|length }} 条记录</span>
+                        </div>
+                        <div class="header-right">
+                            <button type="button" class="btn btn-sm btn-outline" id="selectAllBtn">全选</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="invertSelectBtn">反选</button>
+                            <button type="button" class="btn btn-sm btn-success" id="analyzeBtn" disabled>开始相似度分析</button>
+                        </div>
+                    </div>
+                    
+                    <div class="job-select-list" id="jobSelectList">
+                        {% if jobs %}
+                            {% for job in jobs %}
+                            <div class="job-select-item" data-job-id="{{ job.id }}">
+                                <label class="checkbox-wrapper">
+                                    <input type="checkbox" class="job-checkbox" value="{{ job.id }}">
+                                    <span class="checkmark"></span>
+                                </label>
+                                <div class="job-info">
+                                    <div class="job-title">
+                                        <h4>{{ job.job_name }}</h4>
+                                        <span class="company">{{ job.company_name }}</span>
+                                    </div>
+                                    <div class="job-meta">
+                                        <span class="meta-item">{{ job.job_salary or '面议' }}</span>
+                                        <span class="meta-item">{{ job.location or '未知' }}</span>
+                                        <span class="meta-item">{{ job.experience or '不限' }}</span>
+                                    </div>
+                                </div>
+                                {% if job.id in matched_job_ids %}
+                                <span class="matched-badge">已匹配</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <p>暂无岗位数据，请先启动爬虫获取岗位</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="resultTab">
+                <div class="match-result-panel">
+                    <div class="panel-header">
+                        <div class="header-left">
+                            <h3>匹配结果</h3>
+                            <span class="job-count" id="matchCount">共 {{ matched_jobs|length }} 条记录</span>
+                        </div>
+                        <div class="header-right">
+                            <button type="button" class="btn btn-sm btn-outline" id="selectAllResultBtn">全选</button>
+                            <button type="button" class="btn btn-sm btn-danger" id="deleteSelectedBtn" disabled>批量删除</button>
+                            <button type="button" class="btn btn-sm btn-danger" id="clearAllBtn">清空所有</button>
+                        </div>
+                    </div>
+                    
+                    <div class="match-result-list" id="matchResultList">
+                        {% if matched_jobs %}
+                            {% for item in matched_jobs %}
+                            <div class="match-result-item" data-match-id="{{ item.match_id }}">
+                                <label class="checkbox-wrapper">
+                                    <input type="checkbox" class="result-checkbox" value="{{ item.match_id }}">
+                                    <span class="checkmark"></span>
+                                </label>
+                                <div class="match-score">
+                                    <div class="score-circle" data-score="{{ item.score }}">
+                                        <span class="score-value">{{ item.score }}%</span>
+                                    </div>
+                                </div>
+                                <div class="job-info">
+                                    <div class="job-title">
+                                        <h4>{{ item.job.job_name }}</h4>
+                                        <span class="company">{{ item.job.company_name }}</span>
+                                    </div>
+                                    <div class="job-meta">
+                                        <span class="meta-item">{{ item.job.job_salary or '面议' }}</span>
+                                        <span class="meta-item">{{ item.job.location or '未知' }}</span>
+                                        <span class="meta-item">{{ item.job.experience or '不限' }}</span>
+                                    </div>
+                                    <div class="match-time">分析时间：{{ item.created_at }}</div>
+                                </div>
+                                <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">查看详情</button>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <p>暂无匹配结果，请先选择岗位进行分析</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="jobDetailModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">岗位详情</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+        </div>
+    </div>
+</div>
+
+<div class="modal confirm-modal" id="confirmModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>确认操作</h3>
+            <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmMessage">确定要执行此操作吗？</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeConfirmModal()">取消</button>
+            <button class="btn btn-danger" id="confirmBtn">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">正在分析中，请稍候...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const jobData = {
+    {% for job in jobs %}
+    {{ job.id }}: {
+        job_name: "{{ job.job_name }}",
+        company_name: "{{ job.company_name or '' }}",
+        job_salary: "{{ job.job_salary or '面议' }}",
+        location: "{{ job.location or '未知' }}",
+        experience: "{{ job.experience or '不限' }}",
+        education: "{{ job.education or '不限' }}",
+        industry: "{{ job.industry or '' }}",
+        company_type: "{{ job.company_type or '' }}",
+        company_size: "{{ job.company_size or '' }}",
+        job_description: {{ (job.job_description or '') | tojson }}
+    },
+    {% endfor %}
+};
+
+const matchedJobIds = {{ matched_job_ids | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/match.js') }}"></script>
+{% endblock %}

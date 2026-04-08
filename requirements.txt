@@ -8,3 +8,5 @@ requests==2.31.0
 parsel==1.8.1
 selenium==4.15.2
 urllib3==2.1.0
+sentence-transformers>=2.2.0
+numpy>=1.21.0
