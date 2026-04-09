@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}个性化技能提升 - 岗位推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/skill_improvement.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>岗位推荐系统</h2>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128269;</span>
+                        <span class="nav-text">岗位查找</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('resume.input_resume') }}" class="nav-link">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">简历录入</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('match.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128279;</span>
+                        <span class="nav-text">简历匹配</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="{{ url_for('skill_improvement.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128218;</span>
+                        <span class="nav-text">个性化技能提升</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">退出登录</a>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+        <header class="main-header">
+            <h1>个性化技能提升</h1>
+        </header>
+        
+        <div class="content-wrapper">
+            {% if not has_resume %}
+            <div class="message-panel">
+                <p class="message-text">请先完成简历录入和简历匹配后再使用此功能</p>
+                <a href="{{ url_for('resume.input_resume') }}" class="btn btn-primary">去录入简历</a>
+            </div>
+            {% elif not matched_jobs %}
+            <div class="message-panel">
+                <p class="message-text">请先进行简历匹配后再使用此功能</p>
+                <a href="{{ url_for('match.index') }}" class="btn btn-primary">去简历匹配</a>
+            </div>
+            {% else %}
+            
+            <div class="api-key-panel">
+                <div class="panel-header">
+                    <h3>GLM-4 API 配置</h3>
+                </div>
+                <div class="api-key-form">
+                    <div class="form-group">
+                        <label for="apiKey">API Key</label>
+                        <input type="password" id="apiKey" placeholder="请输入您的 GLM-4 API Key">
+                        <p class="form-hint">API Key 仅在本地使用，不会上传到服务器</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="jobs-panel">
+                <div class="panel-header">
+                    <div class="header-left">
+                        <h3>已匹配岗位</h3>
+                        <span class="job-count">共 {{ matched_jobs|length }} 条记录</span>
+                    </div>
+                </div>
+                
+                <div class="job-list" id="jobList">
+                    {% for item in matched_jobs %}
+                    <div class="job-item" data-job-id="{{ item.job.id }}" data-has-suggestion="{{ item.has_suggestion|lower }}">
+                        <div class="job-info">
+                            <div class="job-title">
+                                <h4>{{ item.job.job_name }}</h4>
+                                <span class="company">{{ item.job.company_name }}</span>
+                            </div>
+                            <div class="job-meta">
+                                <span class="meta-item">{{ item.job.job_salary or '面议' }}</span>
+                                <span class="meta-item">{{ item.job.location or '未知' }}</span>
+                                <span class="meta-item">{{ item.job.experience or '不限' }}</span>
+                            </div>
+                            <div class="match-info">
+                                <span class="match-score">匹配度：{{ item.match_score }}%</span>
+                            </div>
+                        </div>
+                        <div class="job-actions">
+                            {% if item.has_suggestion %}
+                            <button class="btn btn-sm btn-primary view-suggestion-btn" data-job-id="{{ item.job.id }}">查看建议</button>
+                            {% else %}
+                            <button class="btn btn-sm btn-success generate-btn" data-job-id="{{ item.job.id }}">生成建议</button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">岗位详情</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="suggestion-panel" id="suggestionPanel" style="display: none;">
+                <div class="panel-header">
+                    <div class="header-left">
+                        <h3>技能提升建议</h3>
+                        <span class="job-name" id="suggestionJobName"></span>
+                    </div>
+                    <button class="btn btn-sm btn-outline" id="closeSuggestionBtn">关闭</button>
+                </div>
+                <div class="suggestion-content" id="suggestionContent">
+                </div>
+            </div>
+            
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="jobDetailModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">岗位详情</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">正在生成技能提升建议，请稍候...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const jobData = {
+    {% for item in matched_jobs %}
+    {{ item.job.id }}: {
+        job_name: "{{ item.job.job_name }}",
+        company_name: "{{ item.job.company_name or '' }}",
+        job_salary: "{{ item.job.job_salary or '面议' }}",
+        location: "{{ item.job.location or '未知' }}",
+        experience: "{{ item.job.experience or '不限' }}",
+        education: "{{ item.job.education or '不限' }}",
+        industry: "{{ item.job.industry or '' }}",
+        company_type: "{{ item.job.company_type or '' }}",
+        company_size: "{{ item.job.company_size or '' }}",
+        job_description: {{ (item.job.job_description or '') | tojson }},
+        detail_url: {{ (item.job.detail_url or '') | tojson }}
+    },
+    {% endfor %}
+};
+</script>
+<script src="{{ url_for('static', filename='js/skill_improvement.js') }}"></script>
+{% endblock %}

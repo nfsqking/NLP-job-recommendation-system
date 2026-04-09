@@ -34,6 +34,12 @@
                         <span class="nav-text">简历匹配</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('skill_improvement.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128218;</span>
+                        <span class="nav-text">个性化技能提升</span>
+                    </a>
+                </li>
             </ul>
         </nav>
         
@@ -178,7 +184,10 @@
                                     <a href="{{ item.job.detail_url }}" target="_blank" class="job-detail-link">查看岗位详情</a>
                                     {% endif %}
                                 </div>
-                                <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">查看详情</button>
+                                <div class="job-actions">
+                                    <a href="{{ url_for('skill_improvement.index') }}?job_id={{ item.job.id }}" class="btn btn-sm btn-success">生成提升建议</a>
+                                    <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">查看详情</button>
+                                </div>
                             </div>
                             {% endfor %}
                         {% else %}

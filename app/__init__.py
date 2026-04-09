@@ -71,12 +71,14 @@ def create_app(config_name='default'):
     from app.routes.job_crawler import job_crawler as job_crawler_bp
     from app.routes.resume import resume as resume_bp
     from app.routes.match import match as match_bp
+    from app.routes.skill_improvement import skill_improvement as skill_improvement_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(job_crawler_bp, url_prefix='/api')
     app.register_blueprint(resume_bp, url_prefix='/resume')
     app.register_blueprint(match_bp)
+    app.register_blueprint(skill_improvement_bp)
     
     from flask import redirect, url_for
     
