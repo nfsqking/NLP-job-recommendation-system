@@ -93,6 +93,7 @@ function renderJobList(jobs) {
                         <span>${escapeHtml(job.education || '未知')}</span>
                     </div>
                     <div class="job-company">${escapeHtml(job.company_name || '未知公司')}</div>
+                    ${job.detail_url ? `<a href="${escapeHtml(job.detail_url)}" target="_blank" class="job-detail-link" onclick="event.stopPropagation()">查看岗位详情</a>` : ''}
                 </div>
                 <div class="job-salary">${escapeHtml(job.job_salary || '面议')}</div>
             </div>
@@ -188,6 +189,7 @@ function showJobDetail(jobId) {
                                 <span class="value">${escapeHtml(job.company_size || '未知')}</span>
                             </div>
                         </div>
+                        ${job.detail_url ? `<div class="detail-link-wrapper"><a href="${escapeHtml(job.detail_url)}" target="_blank" class="detail-link">查看岗位详情页</a></div>` : ''}
                     </div>
                     <div class="job-detail-section">
                         <h4>职位描述</h4>

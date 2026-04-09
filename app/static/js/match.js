@@ -380,6 +380,7 @@ function showJobDetail(jobId) {
                     <span class="value">${escapeHtml(job.education)}</span>
                 </div>
             </div>
+            ${job.detail_url ? `<div class="detail-link-wrapper"><a href="${escapeHtml(job.detail_url)}" target="_blank" class="detail-link">查看岗位详情页</a></div>` : ''}
             <div class="detail-desc">
                 <h5>岗位描述</h5>
                 <div class="desc-content">${escapeHtml(job.job_description || '暂无描述')}</div>

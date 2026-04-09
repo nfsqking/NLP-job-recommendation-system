@@ -31,6 +31,7 @@ def init_semantic_model():
                 'paraphrase-multilingual-MiniLM-L12-v2',
                 local_files_only=True
             )
+            print("[信息] 语义模型加载成功")
         except Exception as e:
             print(f"[警告] 无法加载本地语义模型: {e}")
             print("[提示] 请先运行以下命令下载模型到本地缓存:")
@@ -83,9 +84,12 @@ def create_app(config_name='default'):
     def index():
         return redirect(url_for('auth.login'))
     
-    with app.app_context():
-        db.create_all()
+    is_main_process = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     
-    init_semantic_model()
+    if is_main_process:
+        with app.app_context():
+            db.create_all()
+        
+        init_semantic_model()
     
     return app

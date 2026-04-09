@@ -25,6 +25,7 @@ class Job(db.Model):
     industry = db.Column(db.String(100))
     company_type = db.Column(db.String(100))
     company_size = db.Column(db.String(50))
+    detail_url = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -43,6 +44,7 @@ class Job(db.Model):
             'industry': self.industry,
             'company_type': self.company_type,
             'company_size': self.company_size,
+            'detail_url': self.detail_url,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

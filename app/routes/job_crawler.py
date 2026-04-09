@@ -43,6 +43,7 @@ class FlaskDatabaseManager:
             existing_job.industry = job.industry
             existing_job.company_type = job.company_type
             existing_job.company_size = job.company_size
+            existing_job.detail_url = job.detail_url
         else:
             new_job = Job(
                 job_id=job.job_id,
@@ -55,7 +56,8 @@ class FlaskDatabaseManager:
                 company_name=job.company_name,
                 industry=job.industry,
                 company_type=job.company_type,
-                company_size=job.company_size
+                company_size=job.company_size,
+                detail_url=job.detail_url
             )
             db.session.add(new_job)
         

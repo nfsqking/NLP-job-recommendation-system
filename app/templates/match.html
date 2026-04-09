@@ -118,6 +118,9 @@
                                         <span class="meta-item">{{ job.location or '未知' }}</span>
                                         <span class="meta-item">{{ job.experience or '不限' }}</span>
                                     </div>
+                                    {% if job.detail_url %}
+                                    <a href="{{ job.detail_url }}" target="_blank" class="job-detail-link" onclick="event.stopPropagation()">查看岗位详情</a>
+                                    {% endif %}
                                 </div>
                                 {% if job.id in matched_job_ids %}
                                 <span class="matched-badge">已匹配</span>
@@ -171,6 +174,9 @@
                                         <span class="meta-item">{{ item.job.experience or '不限' }}</span>
                                     </div>
                                     <div class="match-time">分析时间：{{ item.created_at }}</div>
+                                    {% if item.job.detail_url %}
+                                    <a href="{{ item.job.detail_url }}" target="_blank" class="job-detail-link">查看岗位详情</a>
+                                    {% endif %}
                                 </div>
                                 <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">查看详情</button>
                             </div>
@@ -236,7 +242,8 @@ const jobData = {
         industry: "{{ job.industry or '' }}",
         company_type: "{{ job.company_type or '' }}",
         company_size: "{{ job.company_size or '' }}",
-        job_description: {{ (job.job_description or '') | tojson }}
+        job_description: {{ (job.job_description or '') | tojson }},
+        detail_url: {{ (job.detail_url or '') | tojson }}
     },
     {% endfor %}
 };

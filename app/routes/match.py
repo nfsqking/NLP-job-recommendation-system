@@ -26,6 +26,42 @@ def cosine_similarity(vec1, vec2):
     return dot_product / (norm1 * norm2)
 
 
+def calibrate_similarity_score(similarity):
+    """
+    校准相似度分数，使其更符合实际匹配程度
+    
+    原始余弦相似度通常在 0.3-0.8 之间，直接乘以100会导致分数偏低
+    采用分段线性映射 + 幂函数混合策略进行校准
+    
+    映射规则：
+    - 0.0-0.3: 低相关，映射到 30%-50%
+    - 0.3-0.5: 中等相关，映射到 50%-70%
+    - 0.5-0.7: 较高相关，映射到 70%-85%
+    - 0.7-1.0: 高度相关，映射到 85%-98%
+    
+    Args:
+        similarity: 原始余弦相似度 (0.0-1.0)
+        
+    Returns:
+        校准后的分数 (0-100)
+    """
+    if similarity < 0:
+        similarity = 0
+    elif similarity > 1:
+        similarity = 1
+    
+    if similarity < 0.3:
+        calibrated = 30 + (similarity / 0.3) * 20
+    elif similarity < 0.5:
+        calibrated = 50 + ((similarity - 0.3) / 0.2) * 20
+    elif similarity < 0.7:
+        calibrated = 70 + ((similarity - 0.5) / 0.2) * 15
+    else:
+        calibrated = 85 + ((similarity - 0.7) / 0.3) * 13
+    
+    return min(calibrated, 98)
+
+
 def build_resume_text(resume):
     """构建简历各维度的文本"""
     texts = {}
@@ -169,13 +205,15 @@ def calculate_match_score(resume, job_description):
     
     job_embedding = model.encode([job_description])[0]
     
-    total_score = 0.0
+    total_similarity = 0.0
     for key, weight in normalized_weights.items():
         resume_embedding = model.encode([resume_texts[key]])[0]
         similarity = cosine_similarity(resume_embedding, job_embedding)
-        total_score += similarity * weight
+        total_similarity += similarity * weight
     
-    return float(total_score * 100)
+    calibrated_score = calibrate_similarity_score(total_similarity)
+    
+    return float(calibrated_score)
 
 
 @match.route('/match')

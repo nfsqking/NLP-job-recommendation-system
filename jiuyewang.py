@@ -59,6 +59,7 @@ class JobInfo:
     industry: str
     company_type: str
     company_size: str
+    detail_url: str
 
 
 class DatabaseManager:
@@ -233,11 +234,14 @@ class JobOnlineSpider:
         company_type = p_texts[1].replace('性质：', '').strip() if len(p_texts) > 1 else '未知'
         company_size = p_texts[2].replace('人数：', '').strip() if len(p_texts) > 2 else '未知'
 
+        detail_url = f"https://jobonline.cn/positionDetail?id={job_id}&live=0&posiOriginate=JPOS0020"
+
         return JobInfo(
             job_id=job_id, job_name=job_name, job_salary=job_salary,
             location=location, experience=experience, education=education,
             job_description=job_description, company_name=company_name,
-            industry=industry, company_type=company_type, company_size=company_size
+            industry=industry, company_type=company_type, company_size=company_size,
+            detail_url=detail_url
         )
 
     def run(self) -> None:
