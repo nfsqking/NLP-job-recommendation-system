@@ -5,7 +5,7 @@
 """
 
 import json
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, current_app, Response, stream_with_context
 from flask_login import login_required, current_user
 from app import db
 from app.models import Job, Resume, ResumeJobMatch, SkillSuggestion
@@ -109,7 +109,7 @@ def call_glm4_api(api_key, resume_summary, job_description):
                 {"role": "user", "content": prompt}
             ],
             thinking={
-                "type": "enabled",
+                "type": "disabled",
             },
             max_tokens=65536,
             temperature=1.0
@@ -135,6 +135,53 @@ def call_glm4_api(api_key, resume_summary, job_description):
             print(f"其他错误: {error_msg}")
         
         return None
+
+
+def stream_glm4_api(api_key, resume_summary, job_description):
+    """流式调用GLM-4.7 API生成技能提升建议"""
+    
+    prompt = f"""你是职业技能规划师，请根据以下用户简历与目标岗位描述，分析能力差距，生成具体、可执行、分阶段的个性化技能提升建议，包含：
+1. 核心差距技能（3-5项）
+2. 每项技能的提升路径（学习资源、练习方法、时间规划）
+3. 优先级与落地建议
+
+=== 用户简历 ===
+{resume_summary}
+
+=== 目标岗位描述 ===
+{job_description}
+"""
+    
+    try:
+        client = ZhipuAiClient(api_key=api_key)
+        
+        response = client.chat.completions.create(
+            model="glm-4.7-flash",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            thinking={
+                "type": "disabled",
+            },
+            max_tokens=65536,
+            temperature=1.0,
+            stream=True
+        )
+        
+        for chunk in response:
+            if chunk and hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                delta = chunk.choices[0]
+                if hasattr(delta, 'delta') and hasattr(delta.delta, 'content'):
+                    content = delta.delta.content
+                    if content:
+                        yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+        
+        yield "data: [DONE]\n\n"
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"GLM-4.7 API流式调用失败: {error_msg}")
+        yield f"data: {json.dumps({'error': error_msg}, ensure_ascii=False)}\n\n"
 
 
 @skill_improvement.route('/skill_improvement')
@@ -183,7 +230,6 @@ def generate_suggestion():
     
     data = request.get_json()
     job_id = data.get('job_id')
-    api_key = data.get('api_key', '').strip()
     
     if not job_id:
         return jsonify({
@@ -191,10 +237,11 @@ def generate_suggestion():
             'message': '请选择岗位'
         })
     
+    api_key = current_app.config.get('ZHIPU_API_KEY', '')
     if not api_key:
         return jsonify({
             'success': False,
-            'message': '请输入API_KEY'
+            'message': '系统未配置API_KEY，请联系管理员'
         })
     
     job = Job.query.get(job_id)
@@ -264,6 +311,116 @@ def generate_suggestion():
         'suggestion': suggestion_text,
         'is_new': True
     })
+
+
+@skill_improvement.route('/api/suggestion/stream', methods=['POST'])
+@login_required
+def stream_suggestion():
+    """流式生成技能提升建议API"""
+    resume = Resume.query.filter_by(user_id=current_user.id).first()
+    if not resume:
+        return jsonify({
+            'success': False,
+            'message': '请先录入简历'
+        })
+    
+    data = request.get_json()
+    job_id = data.get('job_id')
+    
+    if not job_id:
+        return jsonify({
+            'success': False,
+            'message': '请选择岗位'
+        })
+    
+    api_key = current_app.config.get('ZHIPU_API_KEY', '')
+    if not api_key:
+        return jsonify({
+            'success': False,
+            'message': '系统未配置API_KEY，请联系管理员'
+        })
+    
+    job = Job.query.get(job_id)
+    if not job:
+        return jsonify({
+            'success': False,
+            'message': '岗位不存在'
+        })
+    
+    existing_suggestion = SkillSuggestion.query.filter_by(
+        user_id=current_user.id,
+        job_id=job_id
+    ).first()
+    
+    if existing_suggestion:
+        def return_existing():
+            yield f"data: {json.dumps({'existing': True, 'suggestion': existing_suggestion.suggestion}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(stream_with_context(return_existing()), 
+                       mimetype='text/event-stream',
+                       headers={
+                           'Cache-Control': 'no-cache',
+                           'X-Accel-Buffering': 'no'
+                       })
+    
+    resume_summary = build_resume_summary(resume)
+    job_description = job.job_description or f"{job.job_name} {job.experience} {job.education}"
+    
+    full_content = []
+    
+    def generate():
+        nonlocal full_content
+        try:
+            for chunk in stream_glm4_api(api_key, resume_summary, job_description):
+                if chunk.startswith("data: [DONE]"):
+                    if full_content:
+                        suggestion_text = ''.join(full_content)
+                        resume_snapshot = json.dumps({
+                            'education_school': resume.education_school,
+                            'skills': resume.skills,
+                            'self_evaluation': resume.self_evaluation,
+                            'internship_content': resume.internship_content,
+                            'work_content': resume.work_content,
+                            'project_content': resume.project_content
+                        }, ensure_ascii=False)
+                        
+                        job_snapshot = json.dumps({
+                            'job_name': job.job_name,
+                            'company_name': job.company_name,
+                            'job_description': job.job_description,
+                            'experience': job.experience,
+                            'education': job.education
+                        }, ensure_ascii=False)
+                        
+                        new_suggestion = SkillSuggestion(
+                            user_id=current_user.id,
+                            job_id=job_id,
+                            resume_snapshot=resume_snapshot,
+                            job_snapshot=job_snapshot,
+                            suggestion=suggestion_text
+                        )
+                        db.session.add(new_suggestion)
+                        db.session.commit()
+                    yield chunk
+                elif chunk.startswith("data: "):
+                    try:
+                        data_str = chunk[6:].strip()
+                        if data_str and data_str != '[DONE]':
+                            data_json = json.loads(data_str)
+                            if 'content' in data_json:
+                                full_content.append(data_json['content'])
+                    except:
+                        pass
+                    yield chunk
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+    
+    return Response(stream_with_context(generate()), 
+                   mimetype='text/event-stream',
+                   headers={
+                       'Cache-Control': 'no-cache',
+                       'X-Accel-Buffering': 'no'
+                   })
 
 
 @skill_improvement.route('/api/suggestion/get')

@@ -30,6 +30,8 @@ class Config:
     CRAWLER_EDGE_DRIVER_PATH = r'E:\edgedriver_win64\msedgedriver.exe'
     CRAWLER_BASE_URL = 'https://jobonline.cn'
     CRAWLER_JOBS_PER_PAGE = 20
+    
+    ZHIPU_API_KEY = os.environ.get('ZHIPU_API_KEY') or ''
 
 
 class DevelopmentConfig(Config):

@@ -42,65 +42,125 @@ function initCloseButton() {
 }
 
 function generateSuggestion(jobId) {
-    const apiKey = document.getElementById('apiKey').value.trim();
-    
-    if (!apiKey) {
-        alert('请先输入 GLM-4 API Key');
-        return;
-    }
-    
     const job = jobData[jobId];
     const jobName = job ? job.job_name : '';
     const companyName = job ? job.company_name : '';
     
-    showLoading();
+    const panel = document.getElementById('suggestionPanel');
+    const jobNameEl = document.getElementById('suggestionJobName');
+    const contentEl = document.getElementById('suggestionContent');
     
-    fetch('/api/suggestion/generate', {
+    if (jobName && companyName) {
+        jobNameEl.textContent = `${jobName} - ${companyName}`;
+    } else if (jobName) {
+        jobNameEl.textContent = jobName;
+    } else {
+        jobNameEl.textContent = '';
+    }
+    
+    contentEl.innerHTML = '<div class="streaming-indicator">正在生成建议...</div>';
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth' });
+    
+    fetch('/api/suggestion/stream', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            job_id: parseInt(jobId),
-            api_key: apiKey
+            job_id: parseInt(jobId)
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
         
-        if (data.success) {
-            displaySuggestion(data.suggestion, jobName, companyName);
-            
-            const jobItem = document.querySelector(`.job-item[data-job-id="${jobId}"]`);
-            if (jobItem) {
-                const actionsDiv = jobItem.querySelector('.job-actions');
-                const generateBtn = actionsDiv.querySelector('.generate-btn');
-                if (generateBtn) {
-                    const viewBtn = document.createElement('button');
-                    viewBtn.className = 'btn btn-sm btn-primary view-suggestion-btn';
-                    viewBtn.dataset.jobId = jobId;
-                    viewBtn.textContent = '查看建议';
-                    viewBtn.addEventListener('click', function() {
-                        viewSuggestion(jobId);
-                    });
-                    generateBtn.replaceWith(viewBtn);
-                }
-            }
-        } else {
-            alert('生成失败：' + (data.message || '未知错误'));
+        function scrollToBottom() {
+            contentEl.scrollTop = contentEl.scrollHeight;
         }
+        
+        function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    updateButtonToView(jobId);
+                    scrollToBottom();
+                    return;
+                }
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') {
+                            if (fullContent && typeof marked !== 'undefined') {
+                                contentEl.innerHTML = marked.parse(fullContent);
+                            }
+                            updateButtonToView(jobId);
+                            scrollToBottom();
+                            return;
+                        }
+                        
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.error) {
+                                contentEl.innerHTML = `<div class="error-message">生成失败：${escapeHtml(data.error)}</div>`;
+                            } else if (data.existing) {
+                                fullContent = data.suggestion;
+                                if (typeof marked !== 'undefined') {
+                                    contentEl.innerHTML = marked.parse(fullContent);
+                                } else {
+                                    contentEl.textContent = fullContent;
+                                }
+                                scrollToBottom();
+                            } else if (data.content) {
+                                fullContent += data.content;
+                                if (typeof marked !== 'undefined') {
+                                    contentEl.innerHTML = marked.parse(fullContent);
+                                } else {
+                                    contentEl.textContent = fullContent;
+                                }
+                                scrollToBottom();
+                            }
+                        } catch (e) {
+                            console.error('Parse error:', e);
+                        }
+                    }
+                });
+                
+                read();
+            });
+        }
+        
+        read();
     })
     .catch(error => {
-        hideLoading();
         console.error('Error:', error);
-        alert('生成出错，请重试');
+        contentEl.innerHTML = `<div class="error-message">生成出错，请重试</div>`;
     });
 }
 
+function updateButtonToView(jobId) {
+    const jobItem = document.querySelector(`.job-item[data-job-id="${jobId}"]`);
+    if (jobItem) {
+        const actionsDiv = jobItem.querySelector('.job-actions');
+        const generateBtn = actionsDiv.querySelector('.generate-btn');
+        if (generateBtn) {
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'btn btn-sm btn-primary view-suggestion-btn';
+            viewBtn.dataset.jobId = jobId;
+            viewBtn.textContent = '查看建议';
+            viewBtn.addEventListener('click', function() {
+                viewSuggestion(jobId);
+            });
+            generateBtn.replaceWith(viewBtn);
+        }
+    }
+}
+
 function viewSuggestion(jobId) {
-    showLoading();
-    
     const job = jobData[jobId];
     const jobName = job ? job.job_name : '';
     const companyName = job ? job.company_name : '';
@@ -108,8 +168,6 @@ function viewSuggestion(jobId) {
     fetch(`/api/suggestion/get?job_id=${jobId}`)
         .then(response => response.json())
         .then(data => {
-            hideLoading();
-            
             if (data.success) {
                 displaySuggestion(
                     data.suggestion.suggestion_text,
@@ -121,7 +179,6 @@ function viewSuggestion(jobId) {
             }
         })
         .catch(error => {
-            hideLoading();
             console.error('Error:', error);
             alert('获取建议出错，请重试');
         });
@@ -207,14 +264,6 @@ document.addEventListener('click', function(e) {
         closeModal();
     }
 });
-
-function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay').style.display = 'none';
-}
 
 function escapeHtml(text) {
     if (!text) return '';
