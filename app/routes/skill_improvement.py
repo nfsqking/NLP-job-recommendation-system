@@ -5,11 +5,11 @@
 """
 
 import json
-import requests
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
 from app import db
 from app.models import Job, Resume, ResumeJobMatch, SkillSuggestion
+from zai import ZhipuAiClient
 
 skill_improvement = Blueprint('skill_improvement', __name__)
 
@@ -86,65 +86,54 @@ def build_resume_summary(resume):
 
 
 def call_glm4_api(api_key, resume_summary, job_description):
-    """调用GLM-4 API生成技能提升建议"""
-    url = "https://open.bigmodel.cn/api/v1/agents"
+    """调用GLM-4.7 API生成技能提升建议"""
     
-    prompt = f"""你是一位专业的职业发展顾问。请根据以下简历信息和目标岗位描述，为求职者提供具体、可行、有针对性的技能提升建议。
+    prompt = f"""你是职业技能规划师，请根据以下用户简历与目标岗位描述，分析能力差距，生成具体、可执行、分阶段的个性化技能提升建议，包含：
+1. 核心差距技能（3-5项）
+2. 每项技能的提升路径（学习资源、练习方法、时间规划）
+3. 优先级与落地建议
 
-【求职者简历信息】
+=== 用户简历 ===
 {resume_summary}
 
-【目标岗位描述】
+=== 目标岗位描述 ===
 {job_description}
-
-请从以下几个方面给出详细的技能提升建议：
-1. 技能差距分析：分析求职者当前技能与岗位要求的差距
-2. 学习路径建议：给出具体的学习步骤和资源推荐
-3. 项目实践建议：推荐可以提升相关技能的实际项目
-4. 证书/认证建议：推荐相关的职业资格证书
-5. 时间规划建议：给出合理的学习时间安排
-
-请用清晰的格式输出，每个部分用标题分隔。"""
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    
-    data = {
-        "agent_id": "general_agent",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "stream": False,
-        "custom_variables": {}
-    }
+"""
     
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=60)
-        response.raise_for_status()
-        result = response.json()
+        client = ZhipuAiClient(api_key=api_key)
         
-        if 'choices' in result and len(result['choices']) > 0:
-            return result['choices'][0]['message']['content']
-        elif 'data' in result and 'choices' in result['data'] and len(result['data']['choices']) > 0:
-            return result['data']['choices'][0]['message']['content']
+        response = client.chat.completions.create(
+            model="glm-4.7-flash",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            thinking={
+                "type": "enabled",
+            },
+            max_tokens=65536,
+            temperature=1.0
+        )
+        
+        if response and hasattr(response, 'choices') and len(response.choices) > 0:
+            return response.choices[0].message.content
         else:
-            print(f"GLM-4 API返回格式异常: {result}")
+            print(f"GLM-4.7 API返回格式异常: {response}")
             return None
-    except requests.exceptions.HTTPError as e:
-        print(f"GLM-4 API HTTP错误: {e}")
-        try:
-            error_detail = e.response.json()
-            print(f"错误详情: {error_detail}")
-        except:
-            pass
-        return None
+            
     except Exception as e:
-        print(f"GLM-4 API调用失败: {e}")
+        error_msg = str(e)
+        print(f"GLM-4.7 API调用失败: {error_msg}")
+        
+        if "api_key" in error_msg.lower() or "unauthorized" in error_msg.lower() or "invalid" in error_msg.lower():
+            print("API_KEY错误或无效")
+        elif "timeout" in error_msg.lower():
+            print("请求超时")
+        elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+            print("网络连接错误")
+        else:
+            print(f"其他错误: {error_msg}")
+        
         return None
 
 

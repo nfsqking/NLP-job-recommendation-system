@@ -49,6 +49,10 @@ function generateSuggestion(jobId) {
         return;
     }
     
+    const job = jobData[jobId];
+    const jobName = job ? job.job_name : '';
+    const companyName = job ? job.company_name : '';
+    
     showLoading();
     
     fetch('/api/suggestion/generate', {
@@ -66,7 +70,7 @@ function generateSuggestion(jobId) {
         hideLoading();
         
         if (data.success) {
-            displaySuggestion(data.suggestion, data.job_name, data.company_name);
+            displaySuggestion(data.suggestion, jobName, companyName);
             
             const jobItem = document.querySelector(`.job-item[data-job-id="${jobId}"]`);
             if (jobItem) {
@@ -97,6 +101,10 @@ function generateSuggestion(jobId) {
 function viewSuggestion(jobId) {
     showLoading();
     
+    const job = jobData[jobId];
+    const jobName = job ? job.job_name : '';
+    const companyName = job ? job.company_name : '';
+    
     fetch(`/api/suggestion/get?job_id=${jobId}`)
         .then(response => response.json())
         .then(data => {
@@ -105,8 +113,8 @@ function viewSuggestion(jobId) {
             if (data.success) {
                 displaySuggestion(
                     data.suggestion.suggestion_text,
-                    data.suggestion.job_name,
-                    data.suggestion.company_name
+                    jobName,
+                    companyName
                 );
             } else {
                 alert('获取建议失败：' + (data.message || '未知错误'));
@@ -124,8 +132,19 @@ function displaySuggestion(suggestionText, jobName, companyName) {
     const jobNameEl = document.getElementById('suggestionJobName');
     const contentEl = document.getElementById('suggestionContent');
     
-    jobNameEl.textContent = `${jobName} - ${companyName}`;
-    contentEl.textContent = suggestionText;
+    if (jobName && companyName) {
+        jobNameEl.textContent = `${jobName} - ${companyName}`;
+    } else if (jobName) {
+        jobNameEl.textContent = jobName;
+    } else {
+        jobNameEl.textContent = '';
+    }
+    
+    if (typeof marked !== 'undefined' && suggestionText) {
+        contentEl.innerHTML = marked.parse(suggestionText);
+    } else {
+        contentEl.textContent = suggestionText || '';
+    }
     
     panel.style.display = 'block';
     panel.scrollIntoView({ behavior: 'smooth' });

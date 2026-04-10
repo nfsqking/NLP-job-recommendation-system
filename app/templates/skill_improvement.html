@@ -155,6 +155,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 const jobData = {
     {% for item in matched_jobs %}
