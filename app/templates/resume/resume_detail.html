@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}我的简历 - 岗位推荐系统{% endblock %}
+{% block title %}{{ resume.resume_name }} - 岗位推荐系统{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
@@ -23,7 +23,7 @@
                     </a>
                 </li>
                 <li class="nav-item active">
-                    <a href="{{ url_for('resume.input_resume') }}" class="nav-link">
+                    <a href="{{ url_for('resume.list_resumes') }}" class="nav-link">
                         <span class="nav-icon">&#128196;</span>
                         <span class="nav-text">简历录入</span>
                     </a>
@@ -53,7 +53,10 @@
     
     <main class="main-content">
         <header class="main-header">
-            <h1>我的简历</h1>
+            <h1>{{ resume.resume_name }}</h1>
+            {% if resume.id == current_resume_id %}
+            <span class="current-badge-header">当前使用中</span>
+            {% endif %}
         </header>
         
         <div class="content-wrapper">
@@ -61,7 +64,11 @@
                 <div class="resume-header">
                     <h2>{{ current_user.nickname or current_user.username }} 的简历</h2>
                     <div class="resume-actions">
-                        <a href="{{ url_for('resume.edit_resume') }}" class="btn btn-primary">编辑简历</a>
+                        {% if resume.id != current_resume_id %}
+                        <a href="{{ url_for('resume.switch_resume', resume_id=resume.id) }}" class="btn btn-success">切换为当前简历</a>
+                        {% endif %}
+                        <a href="{{ url_for('resume.edit_resume', resume_id=resume.id) }}" class="btn btn-primary">编辑简历</a>
+                        <a href="{{ url_for('resume.list_resumes') }}" class="btn btn-secondary">返回列表</a>
                     </div>
                 </div>
                 

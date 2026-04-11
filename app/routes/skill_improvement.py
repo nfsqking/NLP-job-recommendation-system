@@ -2,16 +2,49 @@
 """个性化技能提升路由模块
 
 提供技能提升建议生成和展示功能。
+支持多简历独立建议，每份简历的建议完全隔离。
 """
 
 import json
-from flask import Blueprint, render_template, jsonify, request, current_app, Response, stream_with_context
+from flask import Blueprint, render_template, jsonify, request, current_app, Response, stream_with_context, session
 from flask_login import login_required, current_user
 from app import db
 from app.models import Job, Resume, ResumeJobMatch, SkillSuggestion
 from zai import ZhipuAiClient
 
 skill_improvement = Blueprint('skill_improvement', __name__)
+
+
+def get_current_resume_id():
+    """获取当前选中的简历ID"""
+    resume_id = session.get('current_resume_id')
+    if resume_id:
+        resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first()
+        if resume:
+            return resume_id
+    
+    active_resume = Resume.query.filter_by(user_id=current_user.id, is_active=True).first()
+    if active_resume:
+        session['current_resume_id'] = active_resume.id
+        return active_resume.id
+    
+    first_resume = Resume.query.filter_by(user_id=current_user.id).first()
+    if first_resume:
+        if Resume.query.filter_by(user_id=current_user.id, is_active=True).count() == 0:
+            first_resume.is_active = True
+            db.session.commit()
+        session['current_resume_id'] = first_resume.id
+        return first_resume.id
+    
+    return None
+
+
+def get_current_resume():
+    """获取当前选中的简历对象"""
+    resume_id = get_current_resume_id()
+    if resume_id:
+        return Resume.query.get(resume_id)
+    return None
 
 
 def build_resume_summary(resume):
@@ -188,45 +221,55 @@ def stream_glm4_api(api_key, resume_summary, job_description):
 @login_required
 def index():
     """个性化技能提升页面"""
-    resume = Resume.query.filter_by(user_id=current_user.id).first()
-    has_resume = resume is not None
+    current_resume = get_current_resume()
+    has_resume = current_resume is not None
+    current_resume_id = get_current_resume_id()
     
-    matches = ResumeJobMatch.query.filter_by(user_id=current_user.id).all()
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    
     matched_jobs = []
     
-    for m in matches:
-        job = Job.query.get(m.job_id)
-        if job:
-            existing_suggestion = SkillSuggestion.query.filter_by(
-                user_id=current_user.id,
-                job_id=job.id
-            ).first()
-            
-            matched_jobs.append({
-                'match_id': m.id,
-                'job': job,
-                'match_score': round(m.match_score, 2),
-                'has_suggestion': existing_suggestion is not None,
-                'suggestion_id': existing_suggestion.id if existing_suggestion else None
-            })
-    
-    matched_jobs.sort(key=lambda x: x['match_score'], reverse=True)
+    if current_resume_id:
+        matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
+        
+        for m in matches:
+            job = Job.query.get(m.job_id)
+            if job:
+                existing_suggestion = SkillSuggestion.query.filter_by(
+                    resume_id=current_resume_id,
+                    job_id=job.id
+                ).first()
+                
+                matched_jobs.append({
+                    'match_id': m.id,
+                    'job': job,
+                    'match_score': round(m.match_score, 2),
+                    'has_suggestion': existing_suggestion is not None,
+                    'suggestion_id': existing_suggestion.id if existing_suggestion else None
+                })
+        
+        matched_jobs.sort(key=lambda x: x['match_score'], reverse=True)
     
     return render_template('skill_improvement.html',
                          matched_jobs=matched_jobs,
-                         has_resume=has_resume)
+                         has_resume=has_resume,
+                         current_resume=current_resume,
+                         resumes=resumes,
+                         current_resume_id=current_resume_id)
 
 
 @skill_improvement.route('/api/suggestion/generate', methods=['POST'])
 @login_required
 def generate_suggestion():
     """生成技能提升建议API"""
-    resume = Resume.query.filter_by(user_id=current_user.id).first()
-    if not resume:
+    current_resume = get_current_resume()
+    if not current_resume:
         return jsonify({
             'success': False,
-            'message': '请先录入简历'
+            'message': '请先选择或创建一份简历'
         })
+    
+    current_resume_id = get_current_resume_id()
     
     data = request.get_json()
     job_id = data.get('job_id')
@@ -252,7 +295,7 @@ def generate_suggestion():
         })
     
     existing_suggestion = SkillSuggestion.query.filter_by(
-        user_id=current_user.id,
+        resume_id=current_resume_id,
         job_id=job_id
     ).first()
     
@@ -265,7 +308,7 @@ def generate_suggestion():
             'is_new': False
         })
     
-    resume_summary = build_resume_summary(resume)
+    resume_summary = build_resume_summary(current_resume)
     job_description = job.job_description or f"{job.job_name} {job.experience} {job.education}"
     
     suggestion_text = call_glm4_api(api_key, resume_summary, job_description)
@@ -277,12 +320,12 @@ def generate_suggestion():
         })
     
     resume_snapshot = json.dumps({
-        'education_school': resume.education_school,
-        'skills': resume.skills,
-        'self_evaluation': resume.self_evaluation,
-        'internship_content': resume.internship_content,
-        'work_content': resume.work_content,
-        'project_content': resume.project_content
+        'education_school': current_resume.education_school,
+        'skills': current_resume.skills,
+        'self_evaluation': current_resume.self_evaluation,
+        'internship_content': current_resume.internship_content,
+        'work_content': current_resume.work_content,
+        'project_content': current_resume.project_content
     }, ensure_ascii=False)
     
     job_snapshot = json.dumps({
@@ -295,6 +338,7 @@ def generate_suggestion():
     
     new_suggestion = SkillSuggestion(
         user_id=current_user.id,
+        resume_id=current_resume_id,
         job_id=job_id,
         resume_snapshot=resume_snapshot,
         job_snapshot=job_snapshot,
@@ -317,12 +361,14 @@ def generate_suggestion():
 @login_required
 def stream_suggestion():
     """流式生成技能提升建议API"""
-    resume = Resume.query.filter_by(user_id=current_user.id).first()
-    if not resume:
+    current_resume = get_current_resume()
+    if not current_resume:
         return jsonify({
             'success': False,
-            'message': '请先录入简历'
+            'message': '请先选择或创建一份简历'
         })
+    
+    current_resume_id = get_current_resume_id()
     
     data = request.get_json()
     job_id = data.get('job_id')
@@ -348,7 +394,7 @@ def stream_suggestion():
         })
     
     existing_suggestion = SkillSuggestion.query.filter_by(
-        user_id=current_user.id,
+        resume_id=current_resume_id,
         job_id=job_id
     ).first()
     
@@ -363,7 +409,7 @@ def stream_suggestion():
                            'X-Accel-Buffering': 'no'
                        })
     
-    resume_summary = build_resume_summary(resume)
+    resume_summary = build_resume_summary(current_resume)
     job_description = job.job_description or f"{job.job_name} {job.experience} {job.education}"
     
     full_content = []
@@ -376,12 +422,12 @@ def stream_suggestion():
                     if full_content:
                         suggestion_text = ''.join(full_content)
                         resume_snapshot = json.dumps({
-                            'education_school': resume.education_school,
-                            'skills': resume.skills,
-                            'self_evaluation': resume.self_evaluation,
-                            'internship_content': resume.internship_content,
-                            'work_content': resume.work_content,
-                            'project_content': resume.project_content
+                            'education_school': current_resume.education_school,
+                            'skills': current_resume.skills,
+                            'self_evaluation': current_resume.self_evaluation,
+                            'internship_content': current_resume.internship_content,
+                            'work_content': current_resume.work_content,
+                            'project_content': current_resume.project_content
                         }, ensure_ascii=False)
                         
                         job_snapshot = json.dumps({
@@ -394,6 +440,7 @@ def stream_suggestion():
                         
                         new_suggestion = SkillSuggestion(
                             user_id=current_user.id,
+                            resume_id=current_resume_id,
                             job_id=job_id,
                             resume_snapshot=resume_snapshot,
                             job_snapshot=job_snapshot,
@@ -427,6 +474,13 @@ def stream_suggestion():
 @login_required
 def get_suggestion():
     """获取技能提升建议API"""
+    current_resume_id = get_current_resume_id()
+    if not current_resume_id:
+        return jsonify({
+            'success': False,
+            'message': '请先选择简历'
+        })
+    
     job_id = request.args.get('job_id', type=int)
     
     if not job_id:
@@ -436,7 +490,7 @@ def get_suggestion():
         })
     
     suggestion = SkillSuggestion.query.filter_by(
-        user_id=current_user.id,
+        resume_id=current_resume_id,
         job_id=job_id
     ).first()
     
@@ -463,8 +517,15 @@ def get_suggestion():
 @skill_improvement.route('/api/suggestion/list')
 @login_required
 def list_suggestions():
-    """获取所有技能提升建议列表API"""
-    suggestions = SkillSuggestion.query.filter_by(user_id=current_user.id).all()
+    """获取当前简历的所有技能提升建议列表API"""
+    current_resume_id = get_current_resume_id()
+    if not current_resume_id:
+        return jsonify({
+            'success': True,
+            'suggestions': []
+        })
+    
+    suggestions = SkillSuggestion.query.filter_by(resume_id=current_resume_id).all()
     
     result = []
     for s in suggestions:
@@ -481,4 +542,37 @@ def list_suggestions():
     return jsonify({
         'success': True,
         'suggestions': result
+    })
+
+
+@skill_improvement.route('/api/resume/switch', methods=['POST'])
+@login_required
+def switch_resume():
+    """切换当前简历API"""
+    data = request.get_json()
+    resume_id = data.get('resume_id')
+    
+    if not resume_id:
+        return jsonify({
+            'success': False,
+            'message': '请提供简历ID'
+        })
+    
+    resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first()
+    if not resume:
+        return jsonify({
+            'success': False,
+            'message': '简历不存在'
+        })
+    
+    Resume.query.filter_by(user_id=current_user.id).update({'is_active': False})
+    resume.is_active = True
+    db.session.commit()
+    
+    session['current_resume_id'] = resume_id
+    
+    return jsonify({
+        'success': True,
+        'message': '已切换简历',
+        'resume': resume.to_dict()
     })

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}简历录入 - 岗位推荐系统{% endblock %}
+{% block title %}{% if resume %}编辑简历{% else %}新建简历{% endif %} - 岗位推荐系统{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
@@ -23,7 +23,7 @@
                     </a>
                 </li>
                 <li class="nav-item active">
-                    <a href="{{ url_for('resume.input_resume') }}" class="nav-link">
+                    <a href="{{ url_for('resume.list_resumes') }}" class="nav-link">
                         <span class="nav-icon">&#128196;</span>
                         <span class="nav-text">简历录入</span>
                     </a>
@@ -53,12 +53,24 @@
     
     <main class="main-content">
         <header class="main-header">
-            <h1>{% if resume %}编辑简历{% else %}简历录入{% endif %}</h1>
+            <h1>{% if resume %}编辑简历{% else %}新建简历{% endif %}</h1>
         </header>
         
         <div class="content-wrapper">
             <div class="resume-form-container">
-                <form method="POST" action="{{ url_for('resume.input_resume') }}" class="resume-form" id="resumeForm">
+                <form method="POST" action="{% if resume %}{{ url_for('resume.edit_resume', resume_id=resume.id) }}{% else %}{{ url_for('resume.input_resume') }}{% endif %}" class="resume-form" id="resumeForm">
+                    
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <span class="required-mark">*</span> 简历名称
+                        </h3>
+                        <div class="section-content">
+                            <div class="form-group full-width">
+                                <label for="resume_name">简历名称</label>
+                                <input type="text" name="resume_name" id="resume_name" class="form-control" maxlength="100" placeholder="例如：求职产品经理、转行开发等" value="{{ resume_name if resume_name else (resume.resume_name if resume else '') }}">
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="form-section" data-section="education">
                         <h3 class="section-title">
@@ -115,11 +127,9 @@
                     </div>
                     
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="submitBtn">保存简历</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">{% if resume %}保存修改{% else %}创建简历{% endif %}</button>
                         <button type="button" class="btn btn-secondary" id="resetBtn">重置</button>
-                        {% if resume %}
-                        <a href="{{ url_for('resume.detail_resume') }}" class="btn btn-info">查看简历</a>
-                        {% endif %}
+                        <a href="{{ url_for('resume.list_resumes') }}" class="btn btn-info">返回列表</a>
                     </div>
                 </form>
             </div>

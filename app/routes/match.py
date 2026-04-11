@@ -2,16 +2,49 @@
 """简历匹配路由模块
 
 提供简历与岗位的语义相似度匹配功能。
+支持多简历独立匹配，每份简历的匹配结果完全隔离。
 """
 
 import json
 import numpy as np
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, session
 from flask_login import login_required, current_user
 from app import db, get_semantic_model
 from app.models import Job, Resume, ResumeJobMatch
 
 match = Blueprint('match', __name__)
+
+
+def get_current_resume_id():
+    """获取当前选中的简历ID"""
+    resume_id = session.get('current_resume_id')
+    if resume_id:
+        resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first()
+        if resume:
+            return resume_id
+    
+    active_resume = Resume.query.filter_by(user_id=current_user.id, is_active=True).first()
+    if active_resume:
+        session['current_resume_id'] = active_resume.id
+        return active_resume.id
+    
+    first_resume = Resume.query.filter_by(user_id=current_user.id).first()
+    if first_resume:
+        if Resume.query.filter_by(user_id=current_user.id, is_active=True).count() == 0:
+            first_resume.is_active = True
+            db.session.commit()
+        session['current_resume_id'] = first_resume.id
+        return first_resume.id
+    
+    return None
+
+
+def get_current_resume():
+    """获取当前选中的简历对象"""
+    resume_id = get_current_resume_id()
+    if resume_id:
+        return Resume.query.get(resume_id)
+    return None
 
 
 def cosine_similarity(vec1, vec2):
@@ -223,33 +256,43 @@ def index():
     model = get_semantic_model()
     model_loaded = model is not None
     
-    resume = Resume.query.filter_by(user_id=current_user.id).first()
-    has_resume = resume is not None
+    current_resume = get_current_resume()
+    has_resume = current_resume is not None
+    current_resume_id = get_current_resume_id()
+    
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
     
     jobs = Job.query.order_by(Job.created_at.desc()).all()
     
-    existing_matches = ResumeJobMatch.query.filter_by(user_id=current_user.id).all()
-    matched_job_ids = {m.job_id: m for m in existing_matches}
-    
+    existing_matches = []
+    matched_job_ids = []
     matched_jobs = []
-    for m in existing_matches:
-        job = Job.query.get(m.job_id)
-        if job:
-            matched_jobs.append({
-                'match_id': m.id,
-                'job': job,
-                'score': round(m.match_score, 2),
-                'created_at': m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else ''
-            })
     
-    matched_jobs.sort(key=lambda x: x['score'], reverse=True)
+    if current_resume_id:
+        existing_matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
+        matched_job_ids = {m.job_id: m for m in existing_matches}
+        
+        for m in existing_matches:
+            job = Job.query.get(m.job_id)
+            if job:
+                matched_jobs.append({
+                    'match_id': m.id,
+                    'job': job,
+                    'score': round(m.match_score, 2),
+                    'created_at': m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else ''
+                })
+        
+        matched_jobs.sort(key=lambda x: x['score'], reverse=True)
     
     return render_template('match.html', 
                          jobs=jobs,
                          matched_jobs=matched_jobs,
                          matched_job_ids=list(matched_job_ids.keys()),
                          has_resume=has_resume,
-                         model_loaded=model_loaded)
+                         model_loaded=model_loaded,
+                         current_resume=current_resume,
+                         resumes=resumes,
+                         current_resume_id=current_resume_id)
 
 
 @match.route('/api/jobs')
@@ -292,12 +335,14 @@ def analyze_match():
             'message': '语义模型未加载，请先下载模型到本地缓存'
         })
     
-    resume = Resume.query.filter_by(user_id=current_user.id).first()
-    if not resume:
+    current_resume = get_current_resume()
+    if not current_resume:
         return jsonify({
             'success': False,
-            'message': '请先录入简历后再进行匹配'
+            'message': '请先选择或创建一份简历后再进行匹配'
         })
+    
+    current_resume_id = get_current_resume_id()
     
     data = request.get_json()
     job_ids = data.get('job_ids', [])
@@ -315,7 +360,7 @@ def analyze_match():
             continue
         
         existing_match = ResumeJobMatch.query.filter_by(
-            user_id=current_user.id,
+            resume_id=current_resume_id,
             job_id=job_id
         ).first()
         
@@ -329,11 +374,12 @@ def analyze_match():
                 'is_new': False
             })
         else:
-            score = calculate_match_score(resume, job.job_description or '')
+            score = calculate_match_score(current_resume, job.job_description or '')
             score = float(score)
             
             new_match = ResumeJobMatch(
                 user_id=current_user.id,
+                resume_id=current_resume_id,
                 job_id=job_id,
                 match_score=score
             )
@@ -362,6 +408,13 @@ def analyze_match():
 @login_required
 def delete_matches():
     """删除匹配记录API"""
+    current_resume_id = get_current_resume_id()
+    if not current_resume_id:
+        return jsonify({
+            'success': False,
+            'message': '请先选择简历'
+        })
+    
     data = request.get_json()
     match_ids = data.get('match_ids', [])
     
@@ -373,7 +426,7 @@ def delete_matches():
     
     deleted_count = ResumeJobMatch.query.filter(
         ResumeJobMatch.id.in_(match_ids),
-        ResumeJobMatch.user_id == current_user.id
+        ResumeJobMatch.resume_id == current_resume_id
     ).delete(synchronize_session='fetch')
     
     db.session.commit()
@@ -387,9 +440,16 @@ def delete_matches():
 @match.route('/api/match/clear', methods=['POST'])
 @login_required
 def clear_matches():
-    """清空所有匹配记录API"""
+    """清空当前简历的所有匹配记录API"""
+    current_resume_id = get_current_resume_id()
+    if not current_resume_id:
+        return jsonify({
+            'success': False,
+            'message': '请先选择简历'
+        })
+    
     deleted_count = ResumeJobMatch.query.filter_by(
-        user_id=current_user.id
+        resume_id=current_resume_id
     ).delete()
     
     db.session.commit()
@@ -403,8 +463,15 @@ def clear_matches():
 @match.route('/api/match/list')
 @login_required
 def get_match_list():
-    """获取匹配结果列表API"""
-    matches = ResumeJobMatch.query.filter_by(user_id=current_user.id).all()
+    """获取当前简历的匹配结果列表API"""
+    current_resume_id = get_current_resume_id()
+    if not current_resume_id:
+        return jsonify({
+            'success': True,
+            'matches': []
+        })
+    
+    matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
     
     results = []
     for m in matches:
@@ -429,4 +496,37 @@ def get_match_list():
     return jsonify({
         'success': True,
         'matches': results
+    })
+
+
+@match.route('/api/resume/switch', methods=['POST'])
+@login_required
+def switch_resume():
+    """切换当前简历API"""
+    data = request.get_json()
+    resume_id = data.get('resume_id')
+    
+    if not resume_id:
+        return jsonify({
+            'success': False,
+            'message': '请提供简历ID'
+        })
+    
+    resume = Resume.query.filter_by(id=resume_id, user_id=current_user.id).first()
+    if not resume:
+        return jsonify({
+            'success': False,
+            'message': '简历不存在'
+        })
+    
+    Resume.query.filter_by(user_id=current_user.id).update({'is_active': False})
+    resume.is_active = True
+    db.session.commit()
+    
+    session['current_resume_id'] = resume_id
+    
+    return jsonify({
+        'success': True,
+        'message': '已切换简历',
+        'resume': resume.to_dict()
     })
