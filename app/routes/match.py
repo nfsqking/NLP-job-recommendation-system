@@ -256,11 +256,22 @@ def index():
     model = get_semantic_model()
     model_loaded = model is not None
     
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    
+    if not resumes:
+        return render_template('match.html', 
+                             jobs=[],
+                             matched_jobs=[],
+                             matched_job_ids=[],
+                             has_resume=False,
+                             model_loaded=model_loaded,
+                             current_resume=None,
+                             resumes=[],
+                             current_resume_id=None)
+    
     current_resume = get_current_resume()
     has_resume = current_resume is not None
     current_resume_id = get_current_resume_id()
-    
-    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
     
     jobs = Job.query.order_by(Job.created_at.desc()).all()
     
@@ -270,7 +281,7 @@ def index():
     
     if current_resume_id:
         existing_matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
-        matched_job_ids = {m.job_id: m for m in existing_matches}
+        matched_job_ids_dict = {m.job_id: m for m in existing_matches}
         
         for m in existing_matches:
             job = Job.query.get(m.job_id)
@@ -283,11 +294,12 @@ def index():
                 })
         
         matched_jobs.sort(key=lambda x: x['score'], reverse=True)
+        matched_job_ids = list(matched_job_ids_dict.keys())
     
     return render_template('match.html', 
                          jobs=jobs,
                          matched_jobs=matched_jobs,
-                         matched_job_ids=list(matched_job_ids.keys()),
+                         matched_job_ids=matched_job_ids,
                          has_resume=has_resume,
                          model_loaded=model_loaded,
                          current_resume=current_resume,

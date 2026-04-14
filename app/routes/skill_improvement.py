@@ -221,11 +221,19 @@ def stream_glm4_api(api_key, resume_summary, job_description):
 @login_required
 def index():
     """个性化技能提升页面"""
+    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
+    
+    if not resumes:
+        return render_template('skill_improvement.html',
+                             matched_jobs=[],
+                             has_resume=False,
+                             current_resume=None,
+                             resumes=[],
+                             current_resume_id=None)
+    
     current_resume = get_current_resume()
     has_resume = current_resume is not None
     current_resume_id = get_current_resume_id()
-    
-    resumes = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.created_at.desc()).all()
     
     matched_jobs = []
     
