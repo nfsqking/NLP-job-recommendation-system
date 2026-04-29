@@ -134,9 +134,14 @@
                                     <a href="{{ job.detail_url }}" target="_blank" class="job-detail-link" onclick="event.stopPropagation()">查看岗位详情</a>
                                     {% endif %}
                                 </div>
-                                {% if job.id in matched_job_ids %}
-                                <span class="matched-badge">已匹配</span>
-                                {% endif %}
+                                <div class="job-badges">
+                                    {% if job.id in matched_job_ids %}
+                                    <span class="matched-badge">已匹配</span>
+                                    {% endif %}
+                                    {% if job.id in analyzed_job_ids %}
+                                    <span class="analyzed-badge">已深度分析</span>
+                                    {% endif %}
+                                </div>
                             </div>
                             {% endfor %}
                         {% else %}
@@ -191,6 +196,11 @@
                                     {% endif %}
                                 </div>
                                 <div class="job-actions">
+                                    {% if item.analyzed %}
+                                    <a href="{{ url_for('deep_analysis.result', job_id=item.job.id) }}" class="btn btn-sm btn-primary">查看深度分析</a>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-outline deep-analysis-btn" data-job-id="{{ item.job.id }}">深度分析</button>
+                                    {% endif %}
                                     <a href="{{ url_for('skill_improvement.index') }}?job_id={{ item.job.id }}" class="btn btn-sm btn-success">生成提升建议</a>
                                     <button class="btn btn-sm btn-outline view-detail-btn" data-job-id="{{ item.job.id }}">查看详情</button>
                                 </div>
@@ -264,6 +274,8 @@ const jobData = {
 };
 
 const matchedJobIds = {{ matched_job_ids | tojson }};
+const analyzedJobIds = {{ analyzed_job_ids | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/match.js') }}"></script>
+<script src="{{ url_for('static', filename='js/deep_analysis.js') }}"></script>
 {% endblock %}

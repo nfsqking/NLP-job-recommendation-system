@@ -370,6 +370,24 @@
     flex-shrink: 0;
 }
 
+.job-badges {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-left: 12px;
+    align-items: center;
+}
+
+.analyzed-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 .match-result-item .match-score {
     margin-right: 16px;
     flex-shrink: 0;

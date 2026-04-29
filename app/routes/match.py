@@ -10,7 +10,7 @@ import numpy as np
 from flask import Blueprint, render_template, jsonify, request, session
 from flask_login import login_required, current_user
 from app import db, get_semantic_model
-from app.models import Job, Resume, ResumeJobMatch
+from app.models import Job, Resume, ResumeJobMatch, JobAnalysis
 
 match = Blueprint('match', __name__)
 
@@ -265,10 +265,23 @@ def index():
     existing_matches = []
     matched_job_ids = []
     matched_jobs = []
+    analyzed_job_ids = []
+    analyzed_jobs = []
     
     if current_resume_id:
         existing_matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
         matched_job_ids_dict = {m.job_id: m for m in existing_matches}
+        
+        job_analyses = JobAnalysis.query.filter_by(resume_id=current_resume_id).all()
+        analyzed_job_ids = [a.job_id for a in job_analyses]
+        
+        for analysis in job_analyses:
+            job = Job.query.get(analysis.job_id)
+            if job:
+                analyzed_jobs.append({
+                    'job': job,
+                    'analysis': analysis
+                })
         
         for m in existing_matches:
             job = Job.query.get(m.job_id)
@@ -277,7 +290,8 @@ def index():
                     'match_id': m.id,
                     'job': job,
                     'score': round(m.match_score, 2),
-                    'created_at': m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else ''
+                    'created_at': m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '',
+                    'analyzed': m.job_id in analyzed_job_ids
                 })
         
         matched_jobs.sort(key=lambda x: x['score'], reverse=True)
@@ -287,6 +301,8 @@ def index():
                          jobs=jobs,
                          matched_jobs=matched_jobs,
                          matched_job_ids=matched_job_ids,
+                         analyzed_job_ids=analyzed_job_ids,
+                         analyzed_jobs=analyzed_jobs,
                          has_resume=has_resume,
                          model_loaded=model_loaded,
                          current_resume=current_resume,

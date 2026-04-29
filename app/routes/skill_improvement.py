@@ -266,6 +266,39 @@ def index():
                          current_resume_id=current_resume_id)
 
 
+@skill_improvement.route('/skill_improvement/suggestion/<int:job_id>')
+@login_required
+def suggestion(job_id):
+    """技能提升建议页面"""
+    current_resume = get_current_resume()
+    has_resume = current_resume is not None
+    
+    job = Job.query.get(job_id)
+    if not job:
+        return render_template('skill_suggestion.html',
+                             job=None,
+                             has_resume=has_resume,
+                             has_suggestion=False,
+                             suggestion=None)
+    
+    current_resume_id = get_current_resume_id()
+    suggestion = None
+    has_suggestion = False
+    
+    if current_resume_id:
+        suggestion = SkillSuggestion.query.filter_by(
+            resume_id=current_resume_id,
+            job_id=job_id
+        ).first()
+        has_suggestion = suggestion is not None
+    
+    return render_template('skill_suggestion.html',
+                         job=job,
+                         has_resume=has_resume,
+                         has_suggestion=has_suggestion,
+                         suggestion=suggestion)
+
+
 @skill_improvement.route('/api/suggestion/generate', methods=['POST'])
 @login_required
 def generate_suggestion():

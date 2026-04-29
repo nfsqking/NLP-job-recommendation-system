@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}技能提升建议 - 岗位推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/skill_improvement.css') }}">
+<style>
+.suggestion-page-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 140px);
+}
+
+.suggestion-header {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.suggestion-title {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.suggestion-title h2 {
+    margin: 0;
+    color: #262626;
+    font-size: 20px;
+}
+
+.suggestion-title .job-info {
+    color: #8c8c8c;
+    font-size: 14px;
+}
+
+.suggestion-title .job-info .company {
+    margin-left: 8px;
+    color: #1890ff;
+}
+
+.suggestion-content-wrapper {
+    flex: 1;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.suggestion-content-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.suggestion-content-header h3 {
+    margin: 0;
+    color: #262626;
+    font-size: 16px;
+}
+
+.suggestion-content-body {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.suggestion-content-body .streaming-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #8c8c8c;
+}
+
+.suggestion-content-body .streaming-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #1890ff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.suggestion-content-body .error-message {
+    color: #ff4d4f;
+    padding: 20px;
+    text-align: center;
+}
+
+.suggestion-content-body h1 { font-size: 24px; margin: 20px 0 16px; }
+.suggestion-content-body h2 { font-size: 20px; margin: 18px 0 14px; }
+.suggestion-content-body h3 { font-size: 18px; margin: 16px 0 12px; }
+.suggestion-content-body h4 { font-size: 16px; margin: 14px 0 10px; }
+.suggestion-content-body p { margin: 10px 0; line-height: 1.8; }
+.suggestion-content-body ul, .suggestion-content-body ol { margin: 10px 0; padding-left: 24px; }
+.suggestion-content-body li { margin: 6px 0; line-height: 1.8; }
+.suggestion-content-body code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+.suggestion-content-body pre { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; }
+.suggestion-content-body blockquote { border-left: 4px solid #1890ff; padding-left: 16px; margin: 12px 0; color: #595959; }
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: #8c8c8c;
+}
+
+.empty-state p {
+    margin-bottom: 16px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>岗位推荐系统</h2>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128269;</span>
+                        <span class="nav-text">岗位查找</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('resume.list_resumes') }}" class="nav-link">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">简历录入</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('match.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128279;</span>
+                        <span class="nav-text">简历匹配</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="{{ url_for('skill_improvement.index') }}" class="nav-link">
+                        <span class="nav-icon">&#128218;</span>
+                        <span class="nav-text">个性化技能提升</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('api_docs.doc') }}" class="nav-link" target="_blank">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="nav-text">API文档</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">退出登录</a>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+        <header class="main-header">
+            <h1>技能提升建议</h1>
+            <a href="{{ url_for('skill_improvement.index') }}" class="btn btn-secondary">返回岗位列表</a>
+        </header>
+        
+        <div class="content-wrapper">
+            {% if not has_resume %}
+            <div class="message-panel">
+                <p class="message-text">请先创建简历后再使用此功能</p>
+                <a href="{{ url_for('resume.list_resumes') }}" class="btn btn-primary">去创建简历</a>
+            </div>
+            {% elif not job %}
+            <div class="message-panel">
+                <p class="message-text">岗位不存在</p>
+                <a href="{{ url_for('skill_improvement.index') }}" class="btn btn-primary">返回岗位列表</a>
+            </div>
+            {% else %}
+            
+            <div class="suggestion-page-container">
+                <div class="suggestion-header">
+                    <div class="suggestion-title">
+                        <h2>{{ job.job_name }}</h2>
+                        <div class="job-info">
+                            <span>{{ job.company_name }}</span>
+                            <span class="company">{{ job.job_salary or '面议' }} | {{ job.location or '未知' }}</span>
+                        </div>
+                    </div>
+                    <div class="suggestion-actions">
+                        {% if has_suggestion %}
+                        <button class="btn btn-primary" id="regenerateBtn" data-job-id="{{ job.id }}">重新生成</button>
+                        {% else %}
+                        <button class="btn btn-success" id="generateBtn" data-job-id="{{ job.id }}">生成建议</button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="suggestion-content-wrapper">
+                    <div class="suggestion-content-header">
+                        <h3>技能提升建议内容</h3>
+                        <span class="created-time" id="createdTime">{% if suggestion and suggestion.created_at %}生成时间：{{ suggestion.created_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</span>
+                    </div>
+                    <div class="suggestion-content-body" id="suggestionContent">
+                        {% if has_suggestion and suggestion %}
+                        <div id="existingContent" data-content="{{ suggestion.suggestion | e }}"></div>
+                        {% else %}
+                        <div class="empty-state">
+                            <p>暂无技能提升建议</p>
+                            <button class="btn btn-success" id="emptyGenerateBtn" data-job-id="{{ job.id }}">生成建议</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+const jobId = {{ job.id if job else 'null' }};
+const hasSuggestion = {{ 'true' if has_suggestion else 'false' }};
+const jobData = {
+    {% if job %}
+    {{ job.id }}: {
+        job_name: "{{ job.job_name }}",
+        company_name: "{{ job.company_name or '' }}"
+    }
+    {% endif %}
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    initGenerateButton();
+    initRegenerateButton();
+    renderExistingContent();
+});
+
+function renderExistingContent() {
+    const existingContent = document.getElementById('existingContent');
+    if (existingContent && typeof marked !== 'undefined') {
+        const content = existingContent.dataset.content;
+        if (content) {
+            existingContent.innerHTML = marked.parse(content);
+        }
+    }
+}
+
+function initGenerateButton() {
+    const generateBtn = document.getElementById('generateBtn');
+    const emptyGenerateBtn = document.getElementById('emptyGenerateBtn');
+    
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function() {
+            generateSuggestion(this.dataset.jobId);
+        });
+    }
+    
+    if (emptyGenerateBtn) {
+        emptyGenerateBtn.addEventListener('click', function() {
+            generateSuggestion(this.dataset.jobId);
+        });
+    }
+}
+
+function initRegenerateButton() {
+    const regenerateBtn = document.getElementById('regenerateBtn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', function() {
+            if (confirm('确定要重新生成建议吗？原有建议将被覆盖。')) {
+                generateSuggestion(this.dataset.jobId);
+            }
+        });
+    }
+}
+
+function generateSuggestion(jobId) {
+    const contentEl = document.getElementById('suggestionContent');
+    const createdTimeEl = document.getElementById('createdTime');
+    
+    contentEl.innerHTML = '<div class="streaming-indicator">正在生成建议...</div>';
+    createdTimeEl.textContent = '';
+    
+    fetch('/api/suggestion/stream', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            job_id: parseInt(jobId)
+        })
+    })
+    .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
+        
+        function scrollToBottom() {
+            contentEl.scrollTop = contentEl.scrollHeight;
+        }
+        
+        function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) {
+                    updateButtons();
+                    scrollToBottom();
+                    return;
+                }
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                lines.forEach(line => {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') {
+                            if (fullContent && typeof marked !== 'undefined') {
+                                contentEl.innerHTML = marked.parse(fullContent);
+                            }
+                            updateButtons();
+                            updateCreatedTime();
+                            scrollToBottom();
+                            return;
+                        }
+                        
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.error) {
+                                contentEl.innerHTML = `<div class="error-message">生成失败：${escapeHtml(data.error)}</div>`;
+                            } else if (data.existing) {
+                                fullContent = data.suggestion;
+                                if (typeof marked !== 'undefined') {
+                                    contentEl.innerHTML = marked.parse(fullContent);
+                                } else {
+                                    contentEl.textContent = fullContent;
+                                }
+                                scrollToBottom();
+                            } else if (data.content) {
+                                fullContent += data.content;
+                                if (typeof marked !== 'undefined') {
+                                    contentEl.innerHTML = marked.parse(fullContent);
+                                } else {
+                                    contentEl.textContent = fullContent;
+                                }
+                                scrollToBottom();
+                            }
+                        } catch (e) {
+                            console.error('Parse error:', e);
+                        }
+                    }
+                });
+                
+                read();
+            });
+        }
+        
+        read();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        contentEl.innerHTML = `<div class="error-message">生成出错，请重试</div>`;
+    });
+}
+
+function updateButtons() {
+    const actionsDiv = document.querySelector('.suggestion-actions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = '<button class="btn btn-primary" id="regenerateBtn" data-job-id="' + jobId + '">重新生成</button>';
+        document.getElementById('regenerateBtn').addEventListener('click', function() {
+            if (confirm('确定要重新生成建议吗？原有建议将被覆盖。')) {
+                generateSuggestion(this.dataset.jobId);
+            }
+        });
+    }
+}
+
+function updateCreatedTime() {
+    const now = new Date();
+    const timeStr = now.getFullYear() + '-' + 
+                   String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(now.getDate()).padStart(2, '0') + ' ' + 
+                   String(now.getHours()).padStart(2, '0') + ':' + 
+                   String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('createdTime').textContent = '生成时间：' + timeStr;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

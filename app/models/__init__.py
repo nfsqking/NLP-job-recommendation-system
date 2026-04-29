@@ -9,5 +9,7 @@ from app.models.job import Job
 from app.models.resume import Resume
 from app.models.resume_job_match import ResumeJobMatch
 from app.models.skill_suggestion import SkillSuggestion
+from app.models.resume_score import ResumeScore
+from app.models.job_analysis import JobAnalysis
 
-__all__ = ['User', 'Job', 'Resume', 'ResumeJobMatch', 'SkillSuggestion']
+__all__ = ['User', 'Job', 'Resume', 'ResumeJobMatch', 'SkillSuggestion', 'ResumeScore', 'JobAnalysis']

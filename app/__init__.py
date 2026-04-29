@@ -72,6 +72,7 @@ def create_app(config_name='default'):
     from app.routes.resume import resume as resume_bp
     from app.routes.match import match as match_bp
     from app.routes.skill_improvement import skill_improvement as skill_improvement_bp
+    from app.routes.deep_analysis import deep_analysis as deep_analysis_bp
     from app.routes.api_docs import api_docs as api_docs_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -80,6 +81,7 @@ def create_app(config_name='default'):
     app.register_blueprint(resume_bp, url_prefix='/resume')
     app.register_blueprint(match_bp)
     app.register_blueprint(skill_improvement_bp)
+    app.register_blueprint(deep_analysis_bp, url_prefix='/deep_analysis')
     app.register_blueprint(api_docs_bp)
     
     from flask import redirect, url_for
