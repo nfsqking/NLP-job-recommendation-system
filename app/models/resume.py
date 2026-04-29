@@ -19,19 +19,10 @@ class Resume(db.Model):
     resume_name = db.Column(db.String(100), nullable=False, default='默认简历')
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
-    education_school = db.Column(db.Text, nullable=True)
-    education_major = db.Column(db.Text, nullable=True)
-    
-    internship_company = db.Column(db.Text, nullable=True)
-    internship_position = db.Column(db.Text, nullable=True)
-    internship_content = db.Column(db.Text, nullable=True)
-    
-    work_company = db.Column(db.Text, nullable=True)
-    work_position = db.Column(db.Text, nullable=True)
-    work_content = db.Column(db.Text, nullable=True)
-    
-    project_name = db.Column(db.Text, nullable=True)
-    project_content = db.Column(db.Text, nullable=True)
+    education = db.Column(db.Text, nullable=True)
+    internship = db.Column(db.Text, nullable=True)
+    work = db.Column(db.Text, nullable=True)
+    project = db.Column(db.Text, nullable=True)
     
     skills = db.Column(db.Text, nullable=False)
     self_evaluation = db.Column(db.Text, nullable=False)
@@ -51,16 +42,10 @@ class Resume(db.Model):
             'user_id': self.user_id,
             'resume_name': self.resume_name,
             'is_active': self.is_active,
-            'education_school': self.education_school,
-            'education_major': self.education_major,
-            'internship_company': self.internship_company,
-            'internship_position': self.internship_position,
-            'internship_content': self.internship_content,
-            'work_company': self.work_company,
-            'work_position': self.work_position,
-            'work_content': self.work_content,
-            'project_name': self.project_name,
-            'project_content': self.project_content,
+            'education': self.education,
+            'internship': self.internship,
+            'work': self.work,
+            'project': self.project,
             'skills': self.skills,
             'self_evaluation': self.self_evaluation,
             'created_at': self.created_at.isoformat() if self.created_at else None,

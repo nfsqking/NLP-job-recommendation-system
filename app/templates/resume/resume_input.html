@@ -64,6 +64,28 @@
         
         <div class="content-wrapper">
             <div class="resume-form-container">
+                <div class="upload-section">
+                    <div class="upload-header">
+                        <span class="upload-icon">&#128196;</span>
+                        <span class="upload-title">简历文件上传</span>
+                    </div>
+                    <p class="upload-hint">支持上传 .pdf / .docx 简历文件，系统将自动解析并填充表单</p>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="resumeFile" accept=".pdf,.docx" style="display: none;">
+                        <button type="button" class="btn btn-upload" id="uploadBtn">
+                            <span class="btn-icon">&#128229;</span>
+                            选择文件
+                        </button>
+                        <span class="file-name" id="fileName">未选择文件</span>
+                    </div>
+                    <div class="upload-progress" id="uploadProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">正在解析...</span>
+                    </div>
+                </div>
+                
                 <form method="POST" action="{% if resume %}{{ url_for('resume.edit_resume', resume_id=resume.id) }}{% else %}{{ url_for('resume.input_resume') }}{% endif %}" class="resume-form" id="resumeForm">
                     
                     <div class="form-section">

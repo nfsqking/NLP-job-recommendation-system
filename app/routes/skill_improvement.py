@@ -51,9 +51,9 @@ def build_resume_summary(resume):
     """构建简历摘要文本"""
     summary_parts = []
     
-    if resume.education_school:
+    if resume.education:
         try:
-            edu_list = json.loads(resume.education_school) if resume.education_school.strip().startswith('[') else []
+            edu_list = json.loads(resume.education) if resume.education.strip().startswith('[') else []
             if isinstance(edu_list, list) and edu_list:
                 edu_text = "教育经历："
                 for edu in edu_list:
@@ -71,9 +71,9 @@ def build_resume_summary(resume):
     if resume.self_evaluation:
         summary_parts.append(f"自我评价：{resume.self_evaluation}")
     
-    if resume.internship_content:
+    if resume.internship:
         try:
-            intern_list = json.loads(resume.internship_content) if resume.internship_content.strip().startswith('[') else []
+            intern_list = json.loads(resume.internship) if resume.internship.strip().startswith('[') else []
             if isinstance(intern_list, list) and intern_list:
                 intern_text = "实习经历："
                 for intern in intern_list:
@@ -86,9 +86,9 @@ def build_resume_summary(resume):
         except:
             pass
     
-    if resume.work_content:
+    if resume.work:
         try:
-            work_list = json.loads(resume.work_content) if resume.work_content.strip().startswith('[') else []
+            work_list = json.loads(resume.work) if resume.work.strip().startswith('[') else []
             if isinstance(work_list, list) and work_list:
                 work_text = "工作经历："
                 for work in work_list:
@@ -101,9 +101,9 @@ def build_resume_summary(resume):
         except:
             pass
     
-    if resume.project_content:
+    if resume.project:
         try:
-            proj_list = json.loads(resume.project_content) if resume.project_content.strip().startswith('[') else []
+            proj_list = json.loads(resume.project) if resume.project.strip().startswith('[') else []
             if isinstance(proj_list, list) and proj_list:
                 proj_text = "项目经历："
                 for proj in proj_list:
@@ -328,12 +328,12 @@ def generate_suggestion():
         })
     
     resume_snapshot = json.dumps({
-        'education_school': current_resume.education_school,
+        'education': current_resume.education,
         'skills': current_resume.skills,
         'self_evaluation': current_resume.self_evaluation,
-        'internship_content': current_resume.internship_content,
-        'work_content': current_resume.work_content,
-        'project_content': current_resume.project_content
+        'internship': current_resume.internship,
+        'work': current_resume.work,
+        'project': current_resume.project
     }, ensure_ascii=False)
     
     job_snapshot = json.dumps({
@@ -430,12 +430,12 @@ def stream_suggestion():
                     if full_content:
                         suggestion_text = ''.join(full_content)
                         resume_snapshot = json.dumps({
-                            'education_school': current_resume.education_school,
+                            'education': current_resume.education,
                             'skills': current_resume.skills,
                             'self_evaluation': current_resume.self_evaluation,
-                            'internship_content': current_resume.internship_content,
-                            'work_content': current_resume.work_content,
-                            'project_content': current_resume.project_content
+                            'internship': current_resume.internship,
+                            'work': current_resume.work,
+                            'project': current_resume.project
                         }, ensure_ascii=False)
                         
                         job_snapshot = json.dumps({

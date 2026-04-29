@@ -100,9 +100,9 @@ def build_resume_text(resume):
     texts = {}
     
     education_str = ""
-    if resume.education_school:
+    if resume.education:
         try:
-            edu_list = json.loads(resume.education_school) if resume.education_school.strip().startswith('[') else []
+            edu_list = json.loads(resume.education) if resume.education.strip().startswith('[') else []
             if isinstance(edu_list, list):
                 for edu in edu_list:
                     if isinstance(edu, dict):
@@ -111,22 +111,9 @@ def build_resume_text(resume):
                         if school or major:
                             education_str += f"学校：{school} 专业：{major}；"
             else:
-                education_str = str(resume.education_school)
+                education_str = str(resume.education)
         except:
-            education_str = str(resume.education_school)
-    if resume.education_major and not education_str:
-        try:
-            major_list = json.loads(resume.education_major) if resume.education_major.strip().startswith('[') else []
-            if isinstance(major_list, list):
-                for major in major_list:
-                    if isinstance(major, dict):
-                        m = major.get('major', '')
-                        if m:
-                            education_str += f"专业：{m}；"
-                    elif isinstance(major, str):
-                        education_str += f"专业：{major}；"
-        except:
-            pass
+            education_str = str(resume.education)
     if education_str.strip():
         texts['education'] = education_str.strip()
     
@@ -137,9 +124,9 @@ def build_resume_text(resume):
         texts['self_evaluation'] = str(resume.self_evaluation)
     
     internship_str = ""
-    if resume.internship_content:
+    if resume.internship:
         try:
-            intern_list = json.loads(resume.internship_content) if resume.internship_content.strip().startswith('[') else []
+            intern_list = json.loads(resume.internship) if resume.internship.strip().startswith('[') else []
             if isinstance(intern_list, list):
                 for intern in intern_list:
                     if isinstance(intern, dict):
@@ -149,16 +136,16 @@ def build_resume_text(resume):
                         if company or position or content:
                             internship_str += f"公司：{company} 职位：{position} 内容：{content}；"
             else:
-                internship_str = str(resume.internship_content)
+                internship_str = str(resume.internship)
         except:
-            internship_str = str(resume.internship_content)
+            internship_str = str(resume.internship)
     if internship_str.strip():
         texts['internship'] = internship_str.strip()
     
     work_str = ""
-    if resume.work_content:
+    if resume.work:
         try:
-            work_list = json.loads(resume.work_content) if resume.work_content.strip().startswith('[') else []
+            work_list = json.loads(resume.work) if resume.work.strip().startswith('[') else []
             if isinstance(work_list, list):
                 for work in work_list:
                     if isinstance(work, dict):
@@ -168,16 +155,16 @@ def build_resume_text(resume):
                         if company or position or content:
                             work_str += f"公司：{company} 职位：{position} 内容：{content}；"
             else:
-                work_str = str(resume.work_content)
+                work_str = str(resume.work)
         except:
-            work_str = str(resume.work_content)
+            work_str = str(resume.work)
     if work_str.strip():
         texts['work'] = work_str.strip()
     
     project_str = ""
-    if resume.project_content:
+    if resume.project:
         try:
-            proj_list = json.loads(resume.project_content) if resume.project_content.strip().startswith('[') else []
+            proj_list = json.loads(resume.project) if resume.project.strip().startswith('[') else []
             if isinstance(proj_list, list):
                 for proj in proj_list:
                     if isinstance(proj, dict):
@@ -186,9 +173,9 @@ def build_resume_text(resume):
                         if name or content:
                             project_str += f"项目：{name} 内容：{content}；"
             else:
-                project_str = str(resume.project_content)
+                project_str = str(resume.project)
         except:
-            project_str = str(resume.project_content)
+            project_str = str(resume.project)
     if project_str.strip():
         texts['project'] = project_str.strip()
     

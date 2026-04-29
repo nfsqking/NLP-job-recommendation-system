@@ -12,7 +12,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     """基础配置类"""
     
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production-2024'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production-2026'
     
     WTF_CSRF_ENABLED = False
     

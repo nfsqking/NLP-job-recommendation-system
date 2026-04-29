@@ -6,14 +6,37 @@
 """
 
 import json
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session, jsonify
+import io
+import re
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, jsonify, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from app import db
 from app.models import Resume
+
+try:
+    import pdfplumber
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+
+try:
+    from docx import Document
+    DOCX_SUPPORT = True
+except ImportError:
+    DOCX_SUPPORT = False
+
+try:
+    from zai import ZhipuAiClient
+    GLM_SUPPORT = True
+except ImportError:
+    GLM_SUPPORT = False
 
 resume = Blueprint('resume', __name__)
 
 MAX_RESUME_COUNT = 3
+MAX_FILE_SIZE = 10 * 1024 * 1024
+ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 
 
 def parse_list_data(data_list):
@@ -40,10 +63,10 @@ def prepare_resume_data(resume):
     if not resume:
         return {}
     
-    education_list = get_list_data(resume.education_school)
-    internship_list = get_list_data(resume.internship_company)
-    work_list = get_list_data(resume.work_company)
-    project_list = get_list_data(resume.project_name)
+    education_list = get_list_data(resume.education)
+    internship_list = get_list_data(resume.internship)
+    work_list = get_list_data(resume.work)
+    project_list = get_list_data(resume.project)
     
     return {
         'education': education_list if education_list else [{'school': '', 'major': ''}],
@@ -190,10 +213,10 @@ def input_resume():
             user_id=current_user.id,
             resume_name=resume_name,
             is_active=is_first_resume,
-            education_school=parse_list_data(education_list),
-            internship_company=parse_list_data(internship_list),
-            work_company=parse_list_data(work_list),
-            project_name=parse_list_data(project_list),
+            education=parse_list_data(education_list),
+            internship=parse_list_data(internship_list),
+            work=parse_list_data(work_list),
+            project=parse_list_data(project_list),
             skills=skills,
             self_evaluation=self_evaluation
         )
@@ -284,10 +307,10 @@ def edit_resume(resume_id):
         project_list = [{'name': n.strip(), 'content': c.strip()} for n, c in zip(project_names, project_contents) if n.strip() or c.strip()]
         
         existing_resume.resume_name = resume_name
-        existing_resume.education_school = parse_list_data(education_list)
-        existing_resume.internship_company = parse_list_data(internship_list)
-        existing_resume.work_company = parse_list_data(work_list)
-        existing_resume.project_name = parse_list_data(project_list)
+        existing_resume.education = parse_list_data(education_list)
+        existing_resume.internship = parse_list_data(internship_list)
+        existing_resume.work = parse_list_data(work_list)
+        existing_resume.project = parse_list_data(project_list)
         existing_resume.skills = skills
         existing_resume.self_evaluation = self_evaluation
         
@@ -309,10 +332,10 @@ def detail_resume(resume_id):
         flash('简历不存在', 'danger')
         return redirect(url_for('resume.list_resumes'))
     
-    education_list = get_list_data(resume.education_school)
-    internship_list = get_list_data(resume.internship_company)
-    work_list = get_list_data(resume.work_company)
-    project_list = get_list_data(resume.project_name)
+    education_list = get_list_data(resume.education)
+    internship_list = get_list_data(resume.internship)
+    work_list = get_list_data(resume.work)
+    project_list = get_list_data(resume.project)
     
     current_resume_id = get_current_resume_id()
     
@@ -392,3 +415,292 @@ def api_list_resumes():
         'resumes': [r.to_dict() for r in resumes],
         'current_resume_id': current_resume_id
     })
+
+
+def allowed_file(filename):
+    """检查文件扩展名是否合法"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def extract_text_from_pdf(file_stream):
+    """从PDF文件中提取文本"""
+    if not PDF_SUPPORT:
+        raise Exception("PDF解析库未安装")
+    
+    try:
+        text_parts = []
+        with pdfplumber.open(file_stream) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+        
+        return '\n'.join(text_parts)
+    except Exception as e:
+        raise Exception(f"PDF解析失败: {str(e)}")
+
+
+def extract_text_from_docx(file_stream):
+    """从DOCX文件中提取文本"""
+    if not DOCX_SUPPORT:
+        raise Exception("DOCX解析库未安装")
+    
+    try:
+        doc = Document(file_stream)
+        text_parts = []
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                text_parts.append(paragraph.text.strip())
+        
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = []
+                for cell in row.cells:
+                    if cell.text.strip():
+                        row_text.append(cell.text.strip())
+                if row_text:
+                    text_parts.append(' '.join(row_text))
+        
+        return '\n'.join(text_parts)
+    except Exception as e:
+        raise Exception(f"DOCX解析失败: {str(e)}")
+
+
+def extract_resume_info_with_glm(text, api_key):
+    """使用GLM-4.7-FLASH提取简历结构化信息"""
+    if not GLM_SUPPORT:
+        raise Exception("GLM SDK未安装")
+    
+    prompt = f"""你是专业简历信息提取助手，严格根据用户提供的简历原文，提取信息并输出**严格JSON**，**禁止编造、禁止脑补、禁止空字段填空、禁止返回解释**。
+字段如下：
+{{
+  "resume_name": "简历名称，字符串",
+  "education": "教育经历JSON数组，每项包含school和major字段",
+  "internship": "实习经历JSON数组，每项包含company、position、content字段",
+  "work": "工作经历JSON数组，每项包含company、position、content字段",
+  "project": "项目经历JSON数组，每项包含name、content字段",
+  "skills": "技能，必填，多技能用分号分隔",
+  "self_evaluation": "自我评价，必填，字符串"
+}}
+
+规则：
+- education、internship、work、project 字段必须是JSON数组格式
+- 无信息则返回空数组 []，不要写"无""未知"
+- 严格JSON，无多余文字、无Markdown、无解释
+- 不要修改原文意思，只提取、整理
+
+示例输出：
+{{
+  "resume_name": "张三的简历",
+  "education": [{{"school": "北京大学", "major": "计算机科学"}}],
+  "internship": [{{"company": "腾讯", "position": "后端实习生", "content": "参与XX项目开发"}}],
+  "work": [],
+  "project": [{{"name": "电商系统", "content": "负责订单模块开发"}}],
+  "skills": "Python;Java;MySQL",
+  "self_evaluation": "热爱技术，学习能力强"
+}}
+
+=== 简历原文 ===
+{text}
+"""
+    
+    try:
+        client = ZhipuAiClient(api_key=api_key)
+        
+        response = client.chat.completions.create(
+            model="glm-4.7-flash",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            thinking={
+                "type": "disabled",
+            },
+            max_tokens=4096,
+            temperature=0.1
+        )
+        
+        if response and hasattr(response, 'choices') and len(response.choices) > 0:
+            content = response.choices[0].message.content
+            return content
+        else:
+            raise Exception("GLM返回格式异常")
+            
+    except Exception as e:
+        raise Exception(f"GLM调用失败: {str(e)}")
+
+
+def parse_glm_response(response_text):
+    """解析GLM返回的JSON"""
+    try:
+        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        if json_match:
+            json_str = json_match.group(0)
+            data = json.loads(json_str)
+            
+            result = {
+                'resume_name': data.get('resume_name', ''),
+                'education': data.get('education', []),
+                'internship': data.get('internship', []),
+                'work': data.get('work', []),
+                'project': data.get('project', []),
+                'skills': data.get('skills', ''),
+                'self_evaluation': data.get('self_evaluation', '')
+            }
+            
+            return result
+        else:
+            raise Exception("未找到有效JSON")
+    except json.JSONDecodeError as e:
+        raise Exception(f"JSON解析失败: {str(e)}")
+
+
+def convert_to_form_data(extracted_data):
+    """将提取的数据转换为表单格式"""
+    form_data = {
+        'resume_name': extracted_data.get('resume_name', ''),
+        'education': extracted_data.get('education', []),
+        'internship': extracted_data.get('internship', []),
+        'work': extracted_data.get('work', []),
+        'project': extracted_data.get('project', []),
+        'skills': extracted_data.get('skills', ''),
+        'self_evaluation': extracted_data.get('self_evaluation', '')
+    }
+    
+    if not form_data['education']:
+        form_data['education'].append({'school': '', 'major': ''})
+    
+    return form_data
+
+
+@resume.route('/api/parse', methods=['POST'])
+@login_required
+def api_parse_resume():
+    """解析简历文件API"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': '未选择文件'
+            })
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'message': '未选择文件'
+            })
+        
+        if not allowed_file(file.filename):
+            return jsonify({
+                'success': False,
+                'message': '不支持的文件格式，请上传 .pdf 或 .docx 文件'
+            })
+        
+        file.seek(0, 2)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({
+                'success': False,
+                'message': f'文件过大，请上传小于 {MAX_FILE_SIZE // (1024*1024)}MB 的文件'
+            })
+        
+        file_ext = file.filename.rsplit('.', 1)[1].lower()
+        
+        try:
+            file_stream = io.BytesIO(file.read())
+            
+            if file_ext == 'pdf':
+                if not PDF_SUPPORT:
+                    return jsonify({
+                        'success': False,
+                        'message': 'PDF解析库未安装，请联系管理员'
+                    })
+                text = extract_text_from_pdf(file_stream)
+            elif file_ext == 'docx':
+                if not DOCX_SUPPORT:
+                    return jsonify({
+                        'success': False,
+                        'message': 'DOCX解析库未安装，请联系管理员'
+                    })
+                text = extract_text_from_docx(file_stream)
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '不支持的文件格式'
+                })
+            
+            if not text or not text.strip():
+                return jsonify({
+                    'success': False,
+                    'message': '未提取到有效文本，请检查文件内容'
+                })
+            
+            print(f"[简历解析] 成功提取文本，长度: {len(text)} 字符")
+            
+        except Exception as e:
+            print(f"[简历解析] 文件解析异常: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f'文件解析失败: {str(e)}'
+            })
+        
+        api_key = current_app.config.get('ZHIPU_API_KEY', '')
+        if not api_key:
+            return jsonify({
+                'success': False,
+                'message': '系统未配置API_KEY，请联系管理员'
+            })
+        
+        if not GLM_SUPPORT:
+            return jsonify({
+                'success': False,
+                'message': 'GLM SDK未安装，请联系管理员'
+            })
+        
+        try:
+            print("[简历解析] 开始调用GLM-4.7-FLASH...")
+            glm_response = extract_resume_info_with_glm(text, api_key)
+            print(f"[简历解析] GLM返回: {glm_response[:200]}..." if len(glm_response) > 200 else f"[简历解析] GLM返回: {glm_response}")
+            
+            extracted_data = parse_glm_response(glm_response)
+            form_data = convert_to_form_data(extracted_data)
+            
+            return jsonify({
+                'success': True,
+                'message': '解析成功',
+                'data': form_data
+            })
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[简历解析] GLM调用异常: {error_msg}")
+            
+            if 'JSON' in error_msg or '解析' in error_msg:
+                try:
+                    print("[简历解析] 尝试重新调用GLM...")
+                    glm_response = extract_resume_info_with_glm(text, api_key)
+                    extracted_data = parse_glm_response(glm_response)
+                    form_data = convert_to_form_data(extracted_data)
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': '解析成功',
+                        'data': form_data
+                    })
+                except Exception as retry_e:
+                    print(f"[简历解析] 重试失败: {str(retry_e)}")
+            
+            return jsonify({
+                'success': False,
+                'message': f'AI解析失败: {error_msg}'
+            })
+            
+    except Exception as e:
+        print(f"[简历解析] 未捕获异常: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'服务器内部错误: {str(e)}'
+        })
