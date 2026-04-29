@@ -21,9 +21,9 @@ authorizations = {
 
 api = Api(
     api_docs,
-    version='1.0',
+    version='2.0',
     title='岗位推荐系统 API文档',
-    description='系统所有后端接口的说明文档，包含用户认证、简历管理、岗位查找、简历匹配、个性化技能提升等核心功能。',
+    description='系统所有后端接口的说明文档，包含用户认证、简历管理、岗位查找、简历匹配、深度分析、个性化技能提升等核心功能。',
     doc='/docs',
     authorizations=authorizations,
     security='Bearer Auth'
@@ -33,12 +33,14 @@ ns_auth = Namespace('auth', description='用户认证相关接口', path='/auth'
 ns_resume = Namespace('resume', description='简历管理相关接口', path='/resume')
 ns_job = Namespace('job', description='岗位查找相关接口', path='/jobs')
 ns_match = Namespace('match', description='简历匹配相关接口', path='/match')
+ns_deep = Namespace('deep_analysis', description='深度分析相关接口', path='/deep_analysis')
 ns_skill = Namespace('skill', description='个性化技能提升相关接口', path='/skill')
 
 api.add_namespace(ns_auth)
 api.add_namespace(ns_resume)
 api.add_namespace(ns_job)
 api.add_namespace(ns_match)
+api.add_namespace(ns_deep)
 api.add_namespace(ns_skill)
 
 login_model = api.model('LoginRequest', {
@@ -119,12 +121,14 @@ job_search_response = api.model('JobSearchResponse', {
 
 crawler_start_model = api.model('CrawlerStartRequest', {
     'keyword': fields.String(required=True, description='搜索关键词', example='Python开发'),
-    'max_jobs': fields.Integer(required=False, description='最大爬取数量', example=20)
+    'max_jobs': fields.Integer(required=False, description='最大爬取数量', example=20),
+    'platform': fields.String(required=False, description='爬取平台：jiuyewang(就业在线网) 或 zhilian(智联招聘)', example='jiuyewang', enum=['jiuyewang', 'zhilian'])
 })
 
 crawler_status_model = api.model('CrawlerStatus', {
     'is_running': fields.Boolean(description='是否正在运行'),
     'keyword': fields.String(description='当前搜索关键词'),
+    'platform': fields.String(description='当前运行平台'),
     'progress': fields.Integer(description='当前进度'),
     'total': fields.Integer(description='总数'),
     'message': fields.String(description='状态消息')
@@ -176,6 +180,38 @@ match_list_response = api.model('MatchListResponse', {
     })))
 })
 
+deep_analysis_request_model = api.model('DeepAnalysisRequest', {
+    'job_id': fields.Integer(required=True, description='岗位ID', example=1)
+})
+
+resume_score_model = api.model('ResumeScore', {
+    'expression_score': fields.Integer(description='表达专业性得分（0-10）'),
+    'expression_comment': fields.String(description='表达专业性评语'),
+    'completeness_score': fields.Integer(description='内容完整性得分（0-15）'),
+    'completeness_comment': fields.String(description='内容完整性评语'),
+    'structure_score': fields.Integer(description='结构清晰度得分（0-15）'),
+    'structure_comment': fields.String(description='结构清晰度评语')
+})
+
+job_analysis_model = api.model('JobAnalysis', {
+    'id': fields.Integer(description='分析记录ID'),
+    'job_id': fields.Integer(description='岗位ID'),
+    'skill_match_score': fields.Integer(description='技能匹配得分（0-20）'),
+    'skill_match_comment': fields.String(description='技能匹配评语'),
+    'project_experience_score': fields.Integer(description='项目经验得分（0-40）'),
+    'project_experience_comment': fields.String(description='项目经验评语'),
+    'total_score': fields.Integer(description='综合总分（0-100）')
+})
+
+deep_analysis_response = api.model('DeepAnalysisResponse', {
+    'success': fields.Boolean(description='操作是否成功'),
+    'message': fields.String(description='返回消息'),
+    'data': fields.Nested(api.model('DeepAnalysisData', {
+        'analysis': fields.Nested(job_analysis_model, description='岗位分析结果'),
+        'resume_score': fields.Nested(resume_score_model, description='简历固有三项分数')
+    }))
+})
+
 suggestion_generate_model = api.model('SuggestionGenerateRequest', {
     'job_id': fields.Integer(required=True, description='岗位ID', example=1)
 })
@@ -211,6 +247,36 @@ suggestion_list_response = api.model('SuggestionListResponse', {
         'company_name': fields.String(description='公司名称'),
         'created_at': fields.String(description='创建时间')
     })))
+})
+
+resume_parse_response = api.model('ResumeParseResponse', {
+    'success': fields.Boolean(description='操作是否成功'),
+    'message': fields.String(description='返回消息'),
+    'data': fields.Nested(api.model('ResumeParseData', {
+        'name': fields.String(description='姓名'),
+        'phone': fields.String(description='电话'),
+        'email': fields.String(description='邮箱'),
+        'education': fields.List(fields.Nested(api.model('EducationItem', {
+            'school': fields.String(description='学校'),
+            'major': fields.String(description='专业')
+        })), description='教育经历'),
+        'internship': fields.List(fields.Nested(api.model('InternshipItem', {
+            'company': fields.String(description='公司'),
+            'position': fields.String(description='职位'),
+            'content': fields.String(description='内容')
+        })), description='实习经历'),
+        'work': fields.List(fields.Nested(api.model('WorkItem', {
+            'company': fields.String(description='公司'),
+            'position': fields.String(description='职位'),
+            'content': fields.String(description='内容')
+        })), description='工作经历'),
+        'project': fields.List(fields.Nested(api.model('ProjectItem', {
+            'name': fields.String(description='项目名称'),
+            'content': fields.String(description='项目内容')
+        })), description='项目经历'),
+        'skills': fields.String(description='技能'),
+        'self_evaluation': fields.String(description='自我评价')
+    }))
 })
 
 
@@ -298,6 +364,20 @@ class SwitchResume(Resource):
         pass
 
 
+@ns_resume.route('/parse')
+class ResumeParse(Resource):
+    @ns_resume.doc('parse_resume')
+    @ns_resume.response(200, '成功', resume_parse_response)
+    def post(self):
+        """
+        解析简历文件
+        
+        上传PDF或DOCX简历文件，使用GLM-4.7 AI自动解析并提取结构化信息。
+        支持自动填充表单字段。
+        """
+        pass
+
+
 @ns_job.route('/search')
 class JobSearch(Resource):
     @ns_job.doc('search_jobs')
@@ -328,6 +408,7 @@ class CrawlerStart(Resource):
         启动爬虫
         
         启动岗位爬虫，根据关键词爬取岗位信息。
+        支持选择爬取平台：就业在线网(jiuyewang)或智联招聘(zhilian)。
         爬虫在后台运行，可通过状态接口查询进度。
         """
         pass
@@ -341,7 +422,7 @@ class CrawlerStatus(Resource):
         """
         获取爬虫状态
         
-        获取当前爬虫的运行状态、进度等信息。
+        获取当前爬虫的运行状态、进度、平台等信息。
         """
         pass
 
@@ -448,6 +529,41 @@ class MatchResumeSwitch(Resource):
         切换当前简历（匹配模块）
         
         在匹配页面切换当前使用的简历。
+        """
+        pass
+
+
+@ns_deep.route('/analyze')
+class DeepAnalysisAnalyze(Resource):
+    @ns_deep.doc('deep_analyze')
+    @ns_deep.expect(deep_analysis_request_model)
+    @ns_deep.response(200, '成功', deep_analysis_response)
+    def post(self):
+        """
+        执行深度分析
+        
+        对指定岗位进行深度分析，包含五个评分维度：
+        - 表达专业性（0-10分）
+        - 技能匹配（0-20分）
+        - 内容完整性（0-15分）
+        - 结构清晰度（0-15分）
+        - 项目经验（0-40分）
+        
+        综合总分满分100分，使用GLM-4.7 AI进行智能分析。
+        """
+        pass
+
+
+@ns_deep.route('/result/<int:job_id>')
+class DeepAnalysisResult(Resource):
+    @ns_deep.doc('get_deep_analysis_result')
+    @ns_deep.param('job_id', '岗位ID', type=int, required=True)
+    @ns_deep.response(200, '成功', deep_analysis_response)
+    def get(self, job_id):
+        """
+        获取深度分析结果
+        
+        获取指定岗位的深度分析结果详情，包含雷达图和条形图数据。
         """
         pass
 

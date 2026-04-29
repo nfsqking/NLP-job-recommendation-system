@@ -9,13 +9,15 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models import Job
-from jiuyewang import JobOnlineSpider, JobInfo, DatabaseManager
+from jiuyewang import JobOnlineSpider, JobInfo as JiuyewangJobInfo, DatabaseManager
+from zhilian import ZhilianSpider, JobInfo as ZhilianJobInfo
 
 job_crawler = Blueprint('job_crawler', __name__)
 
 _crawler_status = {
     'is_running': False,
     'keyword': None,
+    'platform': None,
     'progress': 0,
     'total': 0,
     'message': ''
@@ -28,7 +30,7 @@ class FlaskDatabaseManager:
     def __init__(self):
         pass
     
-    def save_job(self, job: JobInfo) -> None:
+    def save_job(self, job) -> None:
         """保存岗位信息到 Flask 数据库"""
         existing_job = Job.query.filter_by(job_id=job.job_id).first()
         
@@ -64,14 +66,15 @@ class FlaskDatabaseManager:
         db.session.commit()
 
 
-def run_crawler(keyword: str, max_jobs: int, app):
-    """在后台线程中运行爬虫"""
+def run_jiuyewang_crawler(keyword: str, max_jobs: int, app):
+    """在后台线程中运行就业在线爬虫"""
     global _crawler_status
     
     with app.app_context():
         try:
             _crawler_status['is_running'] = True
             _crawler_status['keyword'] = keyword
+            _crawler_status['platform'] = 'jiuyewang'
             _crawler_status['progress'] = 0
             _crawler_status['total'] = max_jobs
             _crawler_status['message'] = '正在初始化浏览器...'
@@ -122,6 +125,57 @@ def run_crawler(keyword: str, max_jobs: int, app):
                 spider.browser.quit()
 
 
+def run_zhilian_crawler(keyword: str, max_jobs: int, app):
+    """在后台线程中运行智联招聘爬虫"""
+    global _crawler_status
+    
+    with app.app_context():
+        try:
+            _crawler_status['is_running'] = True
+            _crawler_status['keyword'] = keyword
+            _crawler_status['platform'] = 'zhilian'
+            _crawler_status['progress'] = 0
+            _crawler_status['total'] = max_jobs
+            _crawler_status['message'] = '正在初始化浏览器...'
+            
+            spider = ZhilianSpider(keyword, max_jobs)
+            spider._init_browser()
+            
+            flask_db = FlaskDatabaseManager()
+            spider.db = type('DB', (), {'save_job': flask_db.save_job})()
+            
+            _crawler_status['message'] = '正在搜索岗位...'
+            
+            spider._perform_search()
+            
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support import expected_conditions as EC
+            import time
+            
+            job_ids = spider._get_all_job_ids()
+            _crawler_status['total'] = len(job_ids)
+            
+            for idx, job_id in enumerate(job_ids, 1):
+                if not _crawler_status['is_running']:
+                    break
+                    
+                _crawler_status['progress'] = idx
+                _crawler_status['message'] = f'正在爬取第 {idx}/{len(job_ids)} 个岗位...'
+                
+                job = spider._parse_job_detail(job_id)
+                flask_db.save_job(job)
+            
+            _crawler_status['message'] = f'爬取完成，共保存 {len(job_ids)} 条岗位信息'
+            
+        except Exception as e:
+            _crawler_status['message'] = f'爬取出错: {str(e)}'
+        finally:
+            _crawler_status['is_running'] = False
+            if spider.browser:
+                spider.browser.quit()
+
+
 @job_crawler.route('/crawler/start', methods=['POST'])
 @login_required
 def start_crawler():
@@ -137,6 +191,7 @@ def start_crawler():
     data = request.get_json() or {}
     keyword = data.get('keyword', '').strip()
     max_jobs = data.get('max_jobs', 20)
+    platform = data.get('platform', 'jiuyewang')
     
     if not keyword:
         return jsonify({
@@ -155,16 +210,26 @@ def start_crawler():
         })
     
     app = current_app._get_current_object()
-    thread = threading.Thread(
-        target=run_crawler,
-        args=(keyword, max_jobs, app),
-        daemon=True
-    )
+    
+    if platform == 'zhilian':
+        thread = threading.Thread(
+            target=run_zhilian_crawler,
+            args=(keyword, max_jobs, app),
+            daemon=True
+        )
+    else:
+        thread = threading.Thread(
+            target=run_jiuyewang_crawler,
+            args=(keyword, max_jobs, app),
+            daemon=True
+        )
+    
     thread.start()
     
+    platform_name = '智联招聘' if platform == 'zhilian' else '就业在线网'
     return jsonify({
         'success': True,
-        'message': '爬虫已启动'
+        'message': f'{platform_name}爬虫已启动'
     })
 
 

@@ -221,6 +221,7 @@ document.addEventListener('click', function(e) {
 function startCrawler() {
     const keyword = document.getElementById('crawler-keyword').value.trim();
     const maxJobs = document.getElementById('crawler-count').value;
+    const platform = document.getElementById('crawler-platform').value;
     
     if (!keyword) {
         showFlashMessage('请输入搜索关键词', 'warning');
@@ -240,7 +241,8 @@ function startCrawler() {
         },
         body: JSON.stringify({
             keyword: keyword,
-            max_jobs: parseInt(maxJobs)
+            max_jobs: parseInt(maxJobs),
+            platform: platform
         })
     })
     .then(response => response.json())

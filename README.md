@@ -1,2 +1,9 @@
-# 初始化数据库
-python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all(); print('数据库初始化完成')"
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置GLM-4.7-FLASH API密钥
+config.py中配置ZHIPU_API_KEY
+支持环境变量或配置文件配置
+
+# 运行应用
+python app.py
