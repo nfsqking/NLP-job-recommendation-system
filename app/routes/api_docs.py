@@ -22,7 +22,7 @@ authorizations = {
 api = Api(
     api_docs,
     version='2.0',
-    title='岗位推荐系统 API文档',
+    title='智能招聘系统 API文档',
     description='系统所有后端接口的说明文档，包含用户认证、简历管理、岗位查找、简历匹配、深度分析、个性化技能提升等核心功能。',
     doc='/docs',
     authorizations=authorizations,
