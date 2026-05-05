@@ -266,7 +266,9 @@ class ZhilianSpider:
         if self._verification_handled:
             logger.info("验证已处理过，跳过验证检测")
             return True
-            
+        
+        time.sleep(2)
+        
         try:
             iframes = self.browser.find_elements(By.TAG_NAME, 'iframe')
             if not iframes:
@@ -274,18 +276,27 @@ class ZhilianSpider:
                 self._verification_handled = True
                 return True
             
+            logger.info(f"检测到 {len(iframes)} 个iframe，尝试处理验证...")
+            
             self.browser.switch_to.frame(iframes[0])
             logger.info("已切换到验证iframe")
             
-            time.sleep(1)
+            time.sleep(2)
             
             checkbox_xpath = '/html/body/div/div/div[1]/div[1]'
-            checkbox = self.browser.find_element(By.XPATH, checkbox_xpath)
             
-            if checkbox.is_displayed():
-                checkbox.click()
-                logger.info("已点击人机验证复选框")
-                time.sleep(2)
+            try:
+                checkbox = WebDriverWait(self.browser, 5).until(
+                    EC.presence_of_element_located((By.XPATH, checkbox_xpath))
+                )
+                if checkbox.is_displayed() and checkbox.is_enabled():
+                    checkbox.click()
+                    logger.info("已点击人机验证复选框")
+                    time.sleep(3)
+                else:
+                    logger.info("复选框不可见或不可点击")
+            except Exception as inner_e:
+                logger.info(f"未找到验证复选框或无需验证: {inner_e}")
             
             self.browser.switch_to.default_content()
             self._verification_handled = True
