@@ -271,10 +271,28 @@ function stopCrawler() {
     })
     .then(response => response.json())
     .then(data => {
-        showFlashMessage(data.message, 'info');
+        if (data.success) {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+                statusCheckInterval = null;
+            }
+            
+            document.getElementById('statusMessage').textContent = '爬虫已停止';
+            document.getElementById('startCrawlerBtn').disabled = false;
+            document.getElementById('stopCrawlerBtn').disabled = true;
+            
+            showFlashMessage(data.message, 'info');
+            
+            setTimeout(() => {
+                loadJobs(1);
+            }, 500);
+        } else {
+            showFlashMessage(data.message, 'warning');
+        }
     })
     .catch(error => {
         console.error('Error:', error);
+        showFlashMessage('停止爬虫失败', 'danger');
     });
 }
 

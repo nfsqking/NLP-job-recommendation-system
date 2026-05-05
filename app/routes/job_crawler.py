@@ -251,11 +251,12 @@ def stop_crawler():
     
     if _crawler_status['is_running']:
         _crawler_status['is_running'] = False
-        _crawler_status['message'] = '正在停止爬虫...'
+        _crawler_status['message'] = '爬虫已停止'
     
     return jsonify({
         'success': True,
-        'message': '已发送停止信号'
+        'message': '爬虫已停止',
+        'data': _crawler_status
     })
 
 

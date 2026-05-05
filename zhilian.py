@@ -144,6 +144,7 @@ class ZhilianSpider:
         self.browser: Optional[webdriver.Edge] = None
         self.wait: Optional[WebDriverWait] = None
         self.db: Optional[DatabaseManager] = None
+        self._verification_handled: bool = False
 
     def _init_browser(self) -> None:
         """初始化浏览器"""
@@ -254,11 +255,59 @@ class ZhilianSpider:
         
         return all_job_ids[:self.max_jobs]
 
+    def _handle_anti_crawler_verification(self) -> bool:
+        """处理智联招聘的反爬验证（人机验证复选框）
+        
+        只在第一次访问详情页时检测验证，验证通过后后续页面不会再出现验证。
+        
+        Returns:
+            bool: 是否处理了验证（True表示处理了验证或无需验证）
+        """
+        if self._verification_handled:
+            logger.info("验证已处理过，跳过验证检测")
+            return True
+            
+        try:
+            iframes = self.browser.find_elements(By.TAG_NAME, 'iframe')
+            if not iframes:
+                logger.info("未检测到验证iframe，无需处理验证")
+                self._verification_handled = True
+                return True
+            
+            self.browser.switch_to.frame(iframes[0])
+            logger.info("已切换到验证iframe")
+            
+            time.sleep(1)
+            
+            checkbox_xpath = '/html/body/div/div/div[1]/div[1]'
+            checkbox = self.browser.find_element(By.XPATH, checkbox_xpath)
+            
+            if checkbox.is_displayed():
+                checkbox.click()
+                logger.info("已点击人机验证复选框")
+                time.sleep(2)
+            
+            self.browser.switch_to.default_content()
+            self._verification_handled = True
+            logger.info("验证处理完成，已切回主页面")
+            return True
+            
+        except Exception as e:
+            try:
+                self.browser.switch_to.default_content()
+            except:
+                pass
+            self._verification_handled = True
+            logger.info(f"验证处理跳过（可能无需验证）: {e}")
+            return True
+
     def _parse_job_detail(self, job_id: str) -> JobInfo:
         """解析岗位详情"""
         url = CONFIG['DETAIL_URL'].format(job_id=job_id)
         self.browser.get(url)
         time.sleep(CONFIG['PAGE_LOAD_DELAY'])
+
+        self._handle_anti_crawler_verification()
 
         selector = parsel.Selector(self.browser.page_source)
 
