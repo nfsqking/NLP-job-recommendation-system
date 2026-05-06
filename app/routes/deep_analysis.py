@@ -266,7 +266,7 @@ def index():
     
     analysis_list = []
     for analysis in analyses:
-        job = Job.query.get(analysis.job_id)
+        job = Job.query.filter_by(id=analysis.job_id, user_id=current_user.id).first()
         if job:
             resume_score = ResumeScore.query.filter_by(resume_id=resume.id).first()
             analysis_list.append({
@@ -289,9 +289,9 @@ def result(job_id):
     if not resume:
         return render_template('deep_analysis_result.html', has_resume=False)
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     if not job:
-        return render_template('deep_analysis_result.html', has_resume=False, error='岗位不存在')
+        return render_template('deep_analysis_result.html', has_resume=False, error='岗位不存在或无权访问')
     
     analysis = JobAnalysis.query.filter_by(resume_id=resume.id, job_id=job_id).first()
     if not analysis:
@@ -321,9 +321,9 @@ def api_analyze():
     if not job_id:
         return jsonify({'success': False, 'message': '缺少岗位ID'})
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     if not job:
-        return jsonify({'success': False, 'message': '岗位不存在'})
+        return jsonify({'success': False, 'message': '岗位不存在或无权访问'})
     
     existing_analysis = JobAnalysis.query.filter_by(resume_id=resume.id, job_id=job_id).first()
     if existing_analysis:
@@ -425,7 +425,7 @@ def api_list():
     
     result = []
     for analysis in analyses:
-        job = Job.query.get(analysis.job_id)
+        job = Job.query.filter_by(id=analysis.job_id, user_id=current_user.id).first()
         if job:
             result.append({
                 'analysis_id': analysis.id,

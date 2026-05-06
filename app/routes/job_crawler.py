@@ -27,8 +27,8 @@ _crawler_status = {
 class FlaskDatabaseManager:
     """Flask 数据库适配器，将爬虫数据存入 Flask 应用数据库"""
     
-    def __init__(self):
-        pass
+    def __init__(self, user_id: int = None):
+        self.user_id = user_id
     
     def save_job(self, job) -> None:
         """保存岗位信息到 Flask 数据库"""
@@ -46,6 +46,8 @@ class FlaskDatabaseManager:
             existing_job.company_type = job.company_type
             existing_job.company_size = job.company_size
             existing_job.detail_url = job.detail_url
+            if self.user_id:
+                existing_job.user_id = self.user_id
         else:
             new_job = Job(
                 job_id=job.job_id,
@@ -59,14 +61,15 @@ class FlaskDatabaseManager:
                 industry=job.industry,
                 company_type=job.company_type,
                 company_size=job.company_size,
-                detail_url=job.detail_url
+                detail_url=job.detail_url,
+                user_id=self.user_id
             )
             db.session.add(new_job)
         
         db.session.commit()
 
 
-def run_jiuyewang_crawler(keyword: str, max_jobs: int, app):
+def run_jiuyewang_crawler(keyword: str, max_jobs: int, app, user_id: int):
     """在后台线程中运行就业在线爬虫"""
     global _crawler_status
     
@@ -82,7 +85,7 @@ def run_jiuyewang_crawler(keyword: str, max_jobs: int, app):
             spider = JobOnlineSpider(keyword, max_jobs)
             spider._init_browser()
             
-            flask_db = FlaskDatabaseManager()
+            flask_db = FlaskDatabaseManager(user_id)
             spider.db = type('DB', (), {'save_job': flask_db.save_job})()
             
             _crawler_status['message'] = '正在搜索岗位...'
@@ -125,7 +128,7 @@ def run_jiuyewang_crawler(keyword: str, max_jobs: int, app):
                 spider.browser.quit()
 
 
-def run_zhilian_crawler(keyword: str, max_jobs: int, app):
+def run_zhilian_crawler(keyword: str, max_jobs: int, app, user_id: int):
     """在后台线程中运行智联招聘爬虫"""
     global _crawler_status
     
@@ -141,7 +144,7 @@ def run_zhilian_crawler(keyword: str, max_jobs: int, app):
             spider = ZhilianSpider(keyword, max_jobs)
             spider._init_browser()
             
-            flask_db = FlaskDatabaseManager()
+            flask_db = FlaskDatabaseManager(user_id)
             spider.db = type('DB', (), {'save_job': flask_db.save_job})()
             
             _crawler_status['message'] = '正在搜索岗位...'
@@ -210,17 +213,18 @@ def start_crawler():
         })
     
     app = current_app._get_current_object()
+    user_id = current_user.id
     
     if platform == 'zhilian':
         thread = threading.Thread(
             target=run_zhilian_crawler,
-            args=(keyword, max_jobs, app),
+            args=(keyword, max_jobs, app, user_id),
             daemon=True
         )
     else:
         thread = threading.Thread(
             target=run_jiuyewang_crawler,
-            args=(keyword, max_jobs, app),
+            args=(keyword, max_jobs, app, user_id),
             daemon=True
         )
     
@@ -271,7 +275,7 @@ def search_jobs():
     experience = request.args.get('experience', '').strip()
     education = request.args.get('education', '').strip()
     
-    query = Job.query
+    query = Job.query.filter(Job.user_id == current_user.id)
     
     if keyword:
         query = query.filter(

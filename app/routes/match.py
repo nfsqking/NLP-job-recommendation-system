@@ -250,6 +250,8 @@ def index():
                              jobs=[],
                              matched_jobs=[],
                              matched_job_ids=[],
+                             analyzed_job_ids=[],
+                             analyzed_jobs=[],
                              has_resume=False,
                              model_loaded=model_loaded,
                              current_resume=None,
@@ -260,7 +262,7 @@ def index():
     has_resume = current_resume is not None
     current_resume_id = get_current_resume_id()
     
-    jobs = Job.query.order_by(Job.created_at.desc()).all()
+    jobs = Job.query.filter(Job.user_id == current_user.id).order_by(Job.created_at.desc()).all()
     
     existing_matches = []
     matched_job_ids = []
@@ -276,7 +278,7 @@ def index():
         analyzed_job_ids = [a.job_id for a in job_analyses]
         
         for analysis in job_analyses:
-            job = Job.query.get(analysis.job_id)
+            job = Job.query.filter_by(id=analysis.job_id, user_id=current_user.id).first()
             if job:
                 analyzed_jobs.append({
                     'job': job,
@@ -284,7 +286,7 @@ def index():
                 })
         
         for m in existing_matches:
-            job = Job.query.get(m.job_id)
+            job = Job.query.filter_by(id=m.job_id, user_id=current_user.id).first()
             if job:
                 matched_jobs.append({
                     'match_id': m.id,
@@ -317,7 +319,7 @@ def get_jobs():
     keyword = request.args.get('keyword', '').strip()
     location = request.args.get('location', '').strip()
     
-    query = Job.query
+    query = Job.query.filter(Job.user_id == current_user.id)
     
     if keyword:
         query = query.filter(
@@ -370,7 +372,7 @@ def analyze_match():
     
     results = []
     for job_id in job_ids:
-        job = Job.query.get(job_id)
+        job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
         if not job:
             continue
         
@@ -490,7 +492,7 @@ def get_match_list():
     
     results = []
     for m in matches:
-        job = Job.query.get(m.job_id)
+        job = Job.query.filter_by(id=m.job_id, user_id=current_user.id).first()
         if job:
             results.append({
                 'match_id': int(m.id),

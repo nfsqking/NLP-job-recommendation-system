@@ -241,7 +241,7 @@ def index():
         matches = ResumeJobMatch.query.filter_by(resume_id=current_resume_id).all()
         
         for m in matches:
-            job = Job.query.get(m.job_id)
+            job = Job.query.filter_by(id=m.job_id, user_id=current_user.id).first()
             if job:
                 existing_suggestion = SkillSuggestion.query.filter_by(
                     resume_id=current_resume_id,
@@ -273,7 +273,7 @@ def suggestion(job_id):
     current_resume = get_current_resume()
     has_resume = current_resume is not None
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     if not job:
         return render_template('skill_suggestion.html',
                              job=None,
@@ -328,11 +328,11 @@ def generate_suggestion():
             'message': '系统未配置API_KEY，请联系管理员'
         })
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     if not job:
         return jsonify({
             'success': False,
-            'message': '岗位不存在'
+            'message': '岗位不存在或无权访问'
         })
     
     existing_suggestion = SkillSuggestion.query.filter_by(
@@ -427,11 +427,11 @@ def stream_suggestion():
             'message': '系统未配置API_KEY，请联系管理员'
         })
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     if not job:
         return jsonify({
             'success': False,
-            'message': '岗位不存在'
+            'message': '岗位不存在或无权访问'
         })
     
     existing_suggestion = SkillSuggestion.query.filter_by(
@@ -541,7 +541,7 @@ def get_suggestion():
             'message': '未找到该岗位的提升建议'
         })
     
-    job = Job.query.get(job_id)
+    job = Job.query.filter_by(id=job_id, user_id=current_user.id).first()
     
     return jsonify({
         'success': True,
@@ -570,7 +570,7 @@ def list_suggestions():
     
     result = []
     for s in suggestions:
-        job = Job.query.get(s.job_id)
+        job = Job.query.filter_by(id=s.job_id, user_id=current_user.id).first()
         if job:
             result.append({
                 'id': s.id,
